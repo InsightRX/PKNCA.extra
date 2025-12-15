@@ -1,0 +1,48 @@
+{
+    "defaults": {
+      "adj.r.squared.factor": 0.0001,
+      "max.missing": 0.5,
+      "auc.method": "lin up/log down",
+      "conc.na": "drop",
+      "conc.blq": {
+        "first": "keep",
+        "middle": "keep",
+        "last": "keep"
+      },
+      "first.tmax": true,
+      "allow.tmax.in.half.life": false,
+      "min.hl.points": 3,
+      "min.span.ratio": 2,
+      "max.aucinf.pext": 20,
+      "min.hl.r.squared": 0.9,
+      "tau.choices": "<NA>"
+    },
+    "mapping": {
+      "names": {
+        "adj.r.squared.factor": "allowanceAdjustedR2",
+        "max.missing": "maxMissingValues",
+        "auc.method": "integralMethod",
+        "conc.na": "missingConcentrations",
+        "conc.blq": {
+          "first": "concentrationsBelowLOQFirst",
+          "middle": "concentrationsBelowLOQMiddle",
+          "last": "concentrationsBelowLOQLast"
+        },
+        "first.tmax": null,
+        "allow.tmax.in.half.life": "includeTMax",
+        "min.hl.points": "minPointsRegression",
+        "min.span.ratio": "minSpanRatio",
+        "max.aucinf.pext": "maxAUCExtrapolation",
+        "min.hl.r.squared": "minAcceptableR2",
+        "tau.choices": null
+      },
+      "options": {
+        "auc.method": {
+          "linearUpLogDown": "lin up/log down",
+          "linearLogTrapezoidal": "lin-log",
+          "linearLinearTrapezoidal": "linear"
+        }
+      }
+    }
+}
+

@@ -1,0 +1,17 @@
+{
+  "nca": {
+    "pknca.parameter_mapping": {
+       "CMAX": "cmax",
+       "TMAX": "tmax",
+       "LAMZHL": "half.life",
+       "AUCALL": "aucall",
+       "AUCLST": "auclast",
+       "CLST": "clast.obs",
+       "LAMZ": "lambda.z",
+       "LAMZNPT": "lambda.z.n.points",
+       "R2": "r.squared",
+       "R2ADJ": "adj.r.squared",
+       "SPAN": "span.ratio"
+    }
+  }
+}

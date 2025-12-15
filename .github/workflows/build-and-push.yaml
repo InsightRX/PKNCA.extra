@@ -1,0 +1,43 @@
+name: Pharma AI R Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::678372015519:role/GitHubAssumeRole
+          aws-region: us-west-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: 678372015519
+      
+      - uses: actions/checkout@v4
+        #with:
+        #  ref: 'release-1.58.2'
+      
+      - name: checkout pharmaair build and push
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: 678372015519.dkr.ecr.us-west-2.amazonaws.com/nova
+        run: |
+          set -ex
+          branch_name="${{ github.head_ref || github.ref_name }}"
+
+          docker build -t pharma_ai_r .
+
+          docker tag pharma_ai_r:latest 678372015519.dkr.ecr.us-west-2.amazonaws.com/pharma_ai_r:${branch_name}
+          docker push 678372015519.dkr.ecr.us-west-2.amazonaws.com/pharma_ai_r:${branch_name}
+          echo "IMAGE NAME: 678372015519.dkr.ecr.us-west-2.amazonaws.com/pharma_ai_r:${branch_name}"

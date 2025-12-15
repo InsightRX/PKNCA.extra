@@ -1,0 +1,19 @@
+Object,Type,Description
+subject_id,grouping,subject id
+lambda.z.n.points,info,Number of regression points used
+r.squared,info,R-squared
+adjusted.r.squared,Adjusted R-squared
+span.ratio,Span ratio
+cmax,parameter,Maximum conc
+tmax,parameter,Time of maximum conc
+aucall,parameter,AUC (extrapolated to zero from last obs)
+half.life,parameter,Terminal half-life
+auclast,parameter,AUC to last obs
+aucinf.obs,parameter,AUC to infinity (from observed last point)
+aucinf.pred,parameter,AUC to infinity (from predicted last point)
+cl.obs,parameter,CL/F (calculated using AUCinf.obs)
+cl.pred,parameter,CL/F (calculated using AUCinf.pred)
+vz.obs,parameter,Vz/F (calculated using AUCinf.obs)
+vz.pred,parameter,Vz/F (calculated using AUCinf.pred)
+clast.obs,parameter,Last non-zero concentration
+labmda.z,parameter,Lambda z
