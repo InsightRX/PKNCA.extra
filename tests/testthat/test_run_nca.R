@@ -1,4 +1,4 @@
-dat <- get_data_for_nca()
+dat <- nca_admiral
 ids <- unique(dat$USUBJID)
 
 test_that("NCA works properly and returns expected results for default config and saves to file", {
@@ -6,7 +6,7 @@ test_that("NCA works properly and returns expected results for default config an
   tdir <- tempdir()
   on.exit(file.remove(file.path(tdir, "nca.rds")))
   nca_data <- run_nca(
-    dat, 
+    dat,
     path = file.path(tdir, "nca.rds"),
     no_dots = FALSE,
     verbose = F
@@ -32,7 +32,7 @@ test_that("NCA works properly and returns expected results for default config an
 test_that("NCA returns expected results for a non-default config", {
   nca_data <- run_nca(
     dat[dat$USUBJID %in% ids[1:2],], 
-    specification = "pfizer",
+    specification = "default2",
     no_dots = FALSE,
     verbose = T
   )
