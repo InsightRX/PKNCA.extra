@@ -91,8 +91,6 @@
       "vss.iv.pred": false,
       "vss.md.obs": false,
       "vss.md.pred": false,
-      "vd.obs": false,
-      "vd.pred": false,
       "thalf.eff.obs": false,
       "thalf.eff.pred": false,
       "thalf.eff.iv.obs": false,
