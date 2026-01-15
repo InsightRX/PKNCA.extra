@@ -1,17 +1,28 @@
-<!-- badges: start -->
-[![R-CMD-check](https://github.com/InsightRX/PKNCA.extra/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/InsightRX/PKNCA.extra/actions/workflows/R-CMD-check.yaml)
-  <!-- badges: end -->
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # PKNCA.extra
 
-`PKNCA.extra` provides convenience functions for running non-compartmental analyses using PKNCA. 
+<!-- badges: start -->
 
-The intention of the package is not to substitute or improve on any existing
-functionality within PKNCA, but merely to make it easier and more efficient
-to use by providing convenient wrapper functions.
+[![R-CMD-check](https://github.com/InsightRX/PKNCA.extra/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/InsightRX/PKNCA.extra/actions/workflows/R-CMD-check.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/InsightRX/PKNCA.extra/graph/badge.svg)](https://app.codecov.io/gh/InsightRX/PKNCA.extra)
+<!-- badges: end -->
 
-Manual installation:
+`PKNCA.extra` provides convenience functions for running
+non-compartmental analyses using PKNCA.
 
-```r
-remotes::install_github("InsightRX/PKNCA.extra")
+The intention of the package is not to substitute or improve on any
+existing functionality within PKNCA, but merely to make it easier and
+more efficient to use by providing convenient wrapper functions.
+
+## Installation
+
+You can install the development version of PKNCA.extra from
+[GitHub](https://github.com/) with:
+
+``` r
+# install.packages("pak")
+pak::pak("InsightRX/PKNCA.extra")
 ```
