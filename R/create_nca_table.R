@@ -20,6 +20,7 @@
 #' the `specification` that was used in `run_nca()` to properly map column 
 #' names.
 #' @param prefix prefix all column names with this, e.g. `superpos_`.
+#' @param verbose Verbose?
 #' 
 #' @export
 create_nca_table <- function(
@@ -84,8 +85,8 @@ create_nca_table <- function(
   }
   ## add copy of description in dictionary for parameters with underscores instead of dots
   underscore_copy <- dict |>
-    dplyr::filter(stringr::str_detect(Object, "\\.")) |>
-    dplyr::mutate(Object = stringr::str_replace_all(Object, "\\.", "_"))
+    dplyr::filter(stringr::str_detect(.data$Object, "\\.")) |>
+    dplyr::mutate(Object = stringr::str_replace_all(.data$Object, "\\.", "_"))
   if(nrow(underscore_copy) > 0) {
     dict <- dplyr::bind_rows(dict, underscore_copy)
   }
@@ -99,7 +100,7 @@ create_nca_table <- function(
     )
     dict <- dict %>%
       dplyr::left_join(tmp) %>%
-      dplyr::mutate(Object.mapped = dplyr::if_else(is.na(Object.mapped), Object, Object.mapped))
+      dplyr::mutate(Object.mapped = dplyr::if_else(is.na(.data$Object.mapped), .data$Object, .data$Object.mapped))
   } else {
     dict$Object.mapped <- dict$Object
   }
@@ -111,7 +112,7 @@ create_nca_table <- function(
   tmp <- nca_data %>%
     tidyr::pivot_longer(cols = tidyselect::all_of(parameters)) %>%
     dplyr::group_by(.data$name, .data$nca_interval, .add = TRUE) %>%
-    dplyr::rename(Interval = nca_interval)
+    dplyr::rename(Interval = "nca_interval")
 
   if(!is.null(groups)) {
     tmp <- tmp %>%
@@ -121,19 +122,19 @@ create_nca_table <- function(
   ## capturing statistics
   nca_table <- tmp %>%
     dplyr::summarise(
-      Interval = Interval[1],
+      Interval = .data$Interval[1],
       geom_mean = mean_geom(.data$value, na.rm = TRUE),
       geom_cv_pct = cv_geom(.data$value, na.rm = TRUE),
       arithm_mean = mean(.data$value, na.rm = TRUE),
       arithm_sd = stats::sd(.data$value, na.rm = TRUE),
       arithm_cv_pct = 100*.data$arithm_sd/.data$arithm_mean,
       median = stats::median(.data$value, na.rm = TRUE),
-      pct_5 = quantile(.data$value, .05, na.rm = TRUE),
-      pct_95 = quantile(.data$value, .95, na.rm = TRUE),
+      pct_5 = stats::quantile(.data$value, .05, na.rm = TRUE),
+      pct_95 = stats::quantile(.data$value, .95, na.rm = TRUE),
       min = suppressWarnings(min(.data$value, na.rm = TRUE)),
       max = suppressWarnings(max(.data$value, na.rm = TRUE)),
-      nca_start = nca_start[1],
-      nca_end = nca_end[1]
+      nca_start = .data$nca_start[1],
+      nca_end = .data$nca_end[1]
     ) %>%
     dplyr::mutate(dplyr::across("geom_mean":"max", ~ round(.x, 2) )) %>%
     dplyr::arrange_at(c("name", "nca_start", "nca_end")) %>%
@@ -157,11 +158,10 @@ create_nca_table <- function(
   if(isTRUE(description) && length(dict$Object.mapped) > 0) {
     nca_table <- nca_table %>%
       dplyr::left_join(
-        dict %>% 
-          dplyr::select("Object" = Object.mapped, "Description" = Description),
+        dplyr::select(dict, Object = "Object.mapped", Description = "Description"),
         by = c("Parameter" = "Object")
     ) %>%
-      dplyr::select("Parameter", "Description", !!names(.))
+      dplyr::select("Parameter", "Description", dplyr::everything())
   }
   
   if(style == "pretty") {
@@ -197,10 +197,11 @@ create_nca_table <- function(
 
 ## stats functions
 mean_geom <- function(x, ...) exp(mean(log(x), ...))
-cv_geom <- function(x, ...) 100 * exp(var(log(x), ...) - 1)
+cv_geom <- function(x, ...) 100 * exp(stats::var(log(x), ...) - 1)
 
 #' Get parameter names from a run_nca() output object
 #' 
+#' @param nca_data output data from NCA, generated using `run_nca()`
 get_parameter_names_from_nca_data <- function(nca_data) {
   tmp <- attr(nca_data, "PKNCA_object")
   unique(tmp$result$PPTESTCD)

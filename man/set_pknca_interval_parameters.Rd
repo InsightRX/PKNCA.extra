@@ -8,6 +8,8 @@
 set_pknca_interval_parameters(time, parameters)
 }
 \arguments{
+\item{time}{description...}
+
 \item{parameters}{list of parameters to calculate, indicated by TRUE and
 FALSE, e.g. \code{list(auc.inf.pred=TRUE, cmax.pred=FALSE, ...)}}
 }

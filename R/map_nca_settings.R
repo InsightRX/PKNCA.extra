@@ -52,6 +52,10 @@ map_nca_settings <- function(
 
 #' Core remapping function
 #' 
+#' @param settings TODO
+#' @param m TODO
+#' @param mapped_name TODO
+#' @param mapped_option TODO
 remap_core <- function(settings, m, mapped_name,  mapped_option) {
   if(!is.null(mapped_name)) { # check if available as mapped value
     if(!is.null(settings[[m]])) { 

@@ -87,10 +87,18 @@ list that should match column name in the input dataset.
 E.g. \code{list("sample_id" = c("12345", "23456"))}. This could similarly be used
 to exclude entire subjects, e.g. \verb{list("subject_id = c("103, "105")}}
 
+\item{exclude_subjects}{description...}
+
 \item{sequence_from}{optional. Argument should specify the column name
 that indicates the treatment e.g. for food-effect cross-over trials. It
 will then add sequence group and sequence description columns to the
 output data.}
+
+\item{add_auctau}{compute AUCtau whenever relevant? TRUE (default) / FALSE.
+For multi-dose PK data, this will add the parameter \code{auc_tau} to the NCA
+output data as the AUC for each interval. In essence, it will just make a
+copy of the AUClast for the interval. See exact logic in function
+help page.}
 
 \item{post}{named list of lists, indicating which hard-coded
 post-processing steps to include, and options for each step.
@@ -112,12 +120,6 @@ Other options may be added in future. Default is:
 \item{verbose}{verbose output?}
 
 \item{...}{parameters passed to `PKNCA::pk.nca()`` function.}
-
-\item{auc_tau}{compute AUCtau whenever relevant? TRUE (default) / FALSE.
-For multi-dose PK data, this will add the parameter \code{auc_tau} to the NCA
-output data as the AUC for each interval. In essence, it will just make a
-copy of the AUClast for the interval. See exact logic in function
-help page.}
 }
 \description{
 This function runs an NCA on a pre-parsed dataset. The NCA will be performed

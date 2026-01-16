@@ -2,3 +2,11 @@
 ^\.Rproj\.user$
 ^\.github$
 ^docker$
+^PKNCA\.extra\.Rproj$
+^data-raw$
+^README\.Rmd$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^codecov\.yml$
+^LICENSE\.md$

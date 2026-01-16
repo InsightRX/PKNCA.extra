@@ -6,6 +6,9 @@
 \usage{
 get_parameter_names_from_nca_data(nca_data)
 }
+\arguments{
+\item{nca_data}{output data from NCA, generated using \code{run_nca()}}
+}
 \description{
 Get parameter names from a run_nca() output object
 }
