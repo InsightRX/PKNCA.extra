@@ -36,6 +36,8 @@ as list object. Requires at least entries for \code{subject_id}, \code{time}, \c
 If required entries are specified only partially, then default values
 (i.e. CDISC) nomenclature will be imputed for missing identifiers.}
 
+\item{parameters}{description...}
+
 \item{groups}{optional grouping variable, e.g. \code{ACTARM}.}
 
 \item{verbose}{verbose output?}

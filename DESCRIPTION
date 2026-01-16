@@ -16,6 +16,7 @@ Description: Provides functions to perform NCAs using the PKNCA package
 Imports:
     cli,
     dplyr,
+    irxforge,
     irxutils,
     jsonlite,
     PKNCA,
@@ -32,6 +33,7 @@ Suggests:
     testthat (>= 3.2.0),
     withr
 Remotes:
+    InsightRX/irxforge,
     InsightRX/irxutils
 License: MIT + file LICENSE
 Encoding: UTF-8

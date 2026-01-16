@@ -16,8 +16,6 @@ Usually 40 is more than enough.}
 \item{dictionary}{list object, mapping column names to expected variables.
 Any specified elements, if present in \code{nca_obj$data$conc$data}, will be
 exported in the output object.}
-
-\item{exclusions}{a vector of points to remove ## TODO}
 }
 \description{
 Extract individul fit data from a PKNCA results object, and return as

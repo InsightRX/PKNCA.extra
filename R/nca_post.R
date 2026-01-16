@@ -28,8 +28,8 @@ nca_post_accumulation <- function(
   # Check if there are any subjects with multiple intervals
   has_multiple_intervals <- data %>%
     dplyr::group_by(!!!rlang::syms(group_vars)) %>%
-    dplyr::summarise(n_intervals = dplyr::n_distinct(nca_start)) %>%
-    dplyr::filter(n_intervals > 1) %>%
+    dplyr::summarise(n_intervals = dplyr::n_distinct(.data$nca_start)) %>%
+    dplyr::filter(.data$n_intervals > 1) %>%
     nrow() > 0
 
   # Return original data if no subjects have multiple intervals
@@ -82,10 +82,10 @@ nca_post_accumulation <- function(
   # Calculate accumulation ratios
   out <- data %>%
     dplyr::group_by(!!!rlang::syms(group_vars)) %>%
-    dplyr::arrange(nca_start, .by_group = TRUE) %>%
+    dplyr::arrange(.data$nca_start, .by_group = TRUE) %>%
     dplyr::mutate(
       dplyr::across(
-        all_of(parameters),
+        dplyr::all_of(parameters),
         ~ .x / dplyr::first(.x),
         .names = "accum_{.col}"
       )

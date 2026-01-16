@@ -6,6 +6,15 @@
 \usage{
 remap_core(settings, m, mapped_name, mapped_option)
 }
+\arguments{
+\item{settings}{TODO}
+
+\item{m}{TODO}
+
+\item{mapped_name}{TODO}
+
+\item{mapped_option}{TODO}
+}
 \description{
 Core remapping function
 }

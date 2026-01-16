@@ -9,6 +9,7 @@
 #' concentration data using superposition. If a `dose` is also specified,
 #' it will scale the superposition data linearly compared to the original 
 #' input `dose`, e.g. `list(dose = 500, interval = 12)`.
+#' @param parameters description...
 #' 
 #' @returns a PKNCA output object based on superposition data
 #' 
@@ -100,7 +101,7 @@ run_nca_superposition <- function(
     if("data_conc" %in% names(tmp)) { # error class cannot use bind_rows
       tmp <- tmp |>
         dplyr::mutate(error = as.character(.data$data_conc)) %>%
-        dplyr::select(- data_conc)
+        dplyr::select(-"data_conc")
     }
     steady_state <- steady_state |> 
       dplyr::bind_rows(tmp)
@@ -112,8 +113,8 @@ run_nca_superposition <- function(
     nca_steady_state_results <- run_nca(
       data = steady_state |>
         dplyr::mutate(
-          !!rlang::sym(dictionary$time) := time, 
-          !!rlang::sym(dictionary$conc) := conc,
+          !!rlang::sym(dictionary$time) := .data$time, 
+          !!rlang::sym(dictionary$conc) := .data$conc,
           !!rlang::sym(dictionary$dose) := !!rlang::sym(dictionary$dose_level)
         ),
       groups = groups,
