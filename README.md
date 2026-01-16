@@ -26,3 +26,13 @@ You can install the development version of PKNCA.extra from
 # install.packages("pak")
 pak::pak("InsightRX/PKNCA.extra")
 ```
+
+## Documentation
+
+See at
+[`https://insightrx.github.io/PKNCA.extra/`](https://insightrx.github.io/PKNCA.extra/reference/index.html)
+and also in the installed package: `help(package = "PKNCA.extra")`.
+
+## License
+
+MIT © InsightRX
