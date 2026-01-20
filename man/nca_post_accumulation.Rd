@@ -26,6 +26,9 @@ nca_post_accumulation(
 
 \item{verbose}{verbosity}
 }
+\value{
+NCA output data with accumulation rate added.
+}
 \description{
 Will only be able to calculate accumulation ratio when data is multi-
 interval.

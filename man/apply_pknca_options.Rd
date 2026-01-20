@@ -14,6 +14,9 @@ apply_pknca_options(options, nca_parameters = NULL, verbose = TRUE)
 
 \item{verbose}{show verbose output?}
 }
+\value{
+The current PKNCA options.
+}
 \description{
 Read settings from a JSON file, and pass to PKNCA.options()
 }

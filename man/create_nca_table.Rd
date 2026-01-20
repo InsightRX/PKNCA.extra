@@ -45,6 +45,9 @@ names.}
 
 \item{verbose}{Verbose?}
 }
+\value{
+A data.frame or tibble.
+}
 \description{
 Confirms with layout of table commonly used in PK reports, i.e. where
 stats are outputted in long format using a single column.

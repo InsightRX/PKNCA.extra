@@ -5,6 +5,7 @@
 #' `list(auclast=TRUE, cmax=FALSE, ...)`
 #' @param verbose show verbose output?
 #' 
+#' @returns The current PKNCA options.
 apply_pknca_options <- function(
   options, 
   nca_parameters = NULL, 
@@ -29,6 +30,9 @@ apply_pknca_options <- function(
 #' expected format for `PKNCA::PKNCA.options()`
 #' 
 #' @param opts list of options for PKNCA
+#' 
+#' @returns
+#' A formatted list of arguments to be passed to `PKNCA::PKNCA.options()`.
 parse_pknca_opts_from_spec <- function(opts) {
   arg_list <- list()
   for(key in names(opts)) {

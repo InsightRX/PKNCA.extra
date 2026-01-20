@@ -1,4 +1,4 @@
-#' Extract individul fit data from a PKNCA results object, and return as 
+#' Extract individual fit data from a PKNCA results object, and return as 
 #' data.frame convenient for plotting.
 #' 
 #' @param nca_obj object returned from PKNCA with NCA results.
@@ -8,10 +8,12 @@
 #' Any specified elements, if present in `nca_obj$data$conc$data`, will be 
 #' exported in the output object.
 #' 
+#' @returns 
+#' A data.frame or tibble.
+#' 
 #' @importFrom irxutils underscores_to_dots
 #' 
 #' @export
-#' 
 get_nca_individual_fits <- function(
   nca_obj = NULL,
   n_grid_points = 6,

@@ -9,9 +9,11 @@
 #' @param output PKNCA output object
 #' @param dictionary data dictionary
 #' @param verbose verbose output?
-#'  
-#' @export
 #' 
+#' @returns 
+#' NCA output data with `auctau` added.
+#' 
+#' @export
 nca_add_auctau <- function(
   output,
   dictionary,

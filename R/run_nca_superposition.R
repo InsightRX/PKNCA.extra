@@ -14,7 +14,6 @@
 #' @returns a PKNCA output object based on superposition data
 #' 
 #' @export
-#' 
 run_nca_superposition <- function(
   data,
   dose_data = NULL,

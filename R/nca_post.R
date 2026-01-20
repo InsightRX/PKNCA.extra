@@ -2,6 +2,7 @@
 #' 
 #' Will only be able to calculate accumulation ratio when data is multi-
 #' interval.
+#' 
 #' @param data NCA output data
 #' @param dictionary data dictionary
 #' @param options options for this function:
@@ -10,8 +11,11 @@
 #' 
 #' @param groups grouping variable
 #' @param verbose verbosity
-#' @export
 #' 
+#' @returns
+#' NCA output data with accumulation rate added.
+#' 
+#' @export
 nca_post_accumulation <- function(
   data,
   dictionary,

@@ -7,7 +7,6 @@
 #' description.
 #' 
 #' @export
-#'  
 get_treatment_sequence <- function(
   data, 
   dictionary,

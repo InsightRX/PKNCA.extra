@@ -22,6 +22,9 @@
 #' @param prefix prefix all column names with this, e.g. `superpos_`.
 #' @param verbose Verbose?
 #' 
+#' @returns 
+#' A data.frame or tibble.
+#' 
 #' @export
 create_nca_table <- function(
     nca_data,

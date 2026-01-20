@@ -4,6 +4,9 @@
 #' @param mapping name of mapping to use, default is `pknca`. Mappings are
 #' stored within package in folder `md/nca`.
 #' 
+#' @returns 
+#' A list of settings.
+#' 
 #' @export
 map_nca_settings <- function(
   settings = NULL,

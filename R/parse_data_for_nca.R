@@ -1,11 +1,10 @@
 #' Parse data into dataset for NCA
 #' 
-#' @returns data.frame with data for NCA package
-#' 
 #' @param data list containing SDTM tables as data.frames
 #' 
-#' @export
+#' @returns data.frame with data for NCA package
 #' 
+#' @export
 parse_data_for_nca <- function(data) {
   
   ## Define metadata / settings for NCA

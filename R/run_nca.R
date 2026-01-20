@@ -104,7 +104,7 @@
 #' @param verbose verbose output?
 #' @param ... parameters passed to `PKNCA::pk.nca()`` function.
 #' 
-#' @return NULL
+#' @returns NULL
 #' @export
 #' 
 #' @examples

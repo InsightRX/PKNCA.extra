@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_nca_individual_fits.R
 \name{get_nca_individual_fits}
 \alias{get_nca_individual_fits}
-\title{Extract individul fit data from a PKNCA results object, and return as
+\title{Extract individual fit data from a PKNCA results object, and return as
 data.frame convenient for plotting.}
 \usage{
 get_nca_individual_fits(nca_obj = NULL, n_grid_points = 6, dictionary = NULL)
@@ -17,7 +17,10 @@ Usually 40 is more than enough.}
 Any specified elements, if present in \code{nca_obj$data$conc$data}, will be
 exported in the output object.}
 }
+\value{
+A data.frame or tibble.
+}
 \description{
-Extract individul fit data from a PKNCA results object, and return as
+Extract individual fit data from a PKNCA results object, and return as
 data.frame convenient for plotting.
 }
