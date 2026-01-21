@@ -54,7 +54,7 @@
 #' row. Any other parameters specified in the data.frame as column will also be 
 #' calculated, e.g. `cmax=TRUE`. Currently, only a single row can be supplied
 #' as argument.
-#' @param auc_tau compute AUCtau whenever relevant? TRUE (default) / FALSE. 
+#' @param add_auctau compute AUCtau whenever relevant? TRUE (default) / FALSE. 
 #' For multi-dose PK data, this will add the parameter `auc_tau` to the NCA 
 #' output data as the AUC for each interval. In essence, it will just make a 
 #' copy of the AUClast for the interval. See exact logic in function 
@@ -98,12 +98,13 @@
 #' list that should match column name in the input dataset. 
 #' E.g. `list("sample_id" = c("12345", "23456"))`. This could similarly be used
 #' to exclude entire subjects, e.g. `list("subject_id = c("103, "105")`
+#' @param exclude_subjects description...
 #' @param no_dots if `TRUE` (default) will replace any dots in parameter names
 #' (e.g. `aucinf.obs`) with underscores (`aucinf_obs`).
 #' @param verbose verbose output?
 #' @param ... parameters passed to `PKNCA::pk.nca()`` function.
 #' 
-#' @return NULL
+#' @returns NULL
 #' @export
 #' 
 #' @examples
@@ -334,7 +335,7 @@ run_nca <- function(
       partial_auc <- partial_auc %>%
         dplyr::mutate(auclast = TRUE)
       intervals <- dplyr::bind_rows(intervals, partial_auc) %>%
-        dplyr::mutate(across(all_of(names(.)), function(x) ifelse(is.na(x), FALSE, x)))
+        dplyr::mutate(dplyr::across(dplyr::everything(), function(x) ifelse(is.na(x), FALSE, x)))
     }
   }
   
@@ -386,17 +387,17 @@ run_nca <- function(
   ## Combine results and parse into output structure
   if(verbose) cli::cli_alert_info("Parsing output from PKNCA")
   res_inf <- res$result %>%
-    dplyr::select(-exclude) %>%
+    dplyr::select(-"exclude") %>%
     tidyr::pivot_wider(
-      names_from = PPTESTCD, 
-      values_from = PPORRES
+      names_from = "PPTESTCD", 
+      values_from = "PPORRES"
     ) %>%
     dplyr::mutate(
-      is_partial = is.na(tmax) & # all columns with start/end matching partial_auc, and where other NCA params are NA
-        (start %in% partial_auc$start & end %in% partial_auc$end)
+      # all columns with start/end matching partial_auc, and where other NCA params are NA
+      is_partial = is.na(.data$tmax) & 
+        (.data$start %in% partial_auc$start & .data$end %in% partial_auc$end)
     )
-  res_partial <- res_inf %>%
-    dplyr::filter(is_partial)
+  res_partial <- dplyr::filter(res_inf, .data$is_partial)
 
   ## Keep columns in data that are often used for grouping.
   ## User can also specify `groups` as argument, this is just for convenience.
@@ -413,9 +414,9 @@ run_nca <- function(
     unique(res$result$PPTESTCD)
   )
   cols_out <- c(cols_id_group, "start", "end", cols_pknca)
-  joiner <- c(dictionary$subject_id, setNames(groups, groups))
+  joiner <- c(dictionary$subject_id, stats::setNames(groups, groups))
   nca_output <- res_inf %>%
-    dplyr::filter(!is_partial) %>%
+    dplyr::filter(!.data$is_partial) %>%
     dplyr::left_join(
       data %>%
         dplyr::group_by_at(c(dictionary$subject_id, cols_groups)) %>%
@@ -428,8 +429,8 @@ run_nca <- function(
   
   ## Add interval identifier, for easier stratifying by interval (e.g. for plotting)
   intv <- intervals %>%
-    dplyr::select(start, end) %>%
-    dplyr::mutate(interval = paste(start, end, sep = " - "))
+    dplyr::select("start", "end") %>%
+    dplyr::mutate(interval = paste(.data$start, .data$end, sep = " - "))
   nca_output <- nca_output %>%
     dplyr::left_join(intv, by = c("start", "end"))
   
@@ -475,11 +476,11 @@ run_nca <- function(
     keep = c(dictionary$subject_id, cols_groups, "start", "end", "interval", name_partial_auc)
   ) %>%
     dplyr::rename(
-      nca_start = start,
-      nca_end = end
+      nca_start = "start",
+      nca_end = "end"
     ) |>
-    dplyr::mutate(nca_interval = paste0(nca_start, " - ", nca_end)) |>
-    dplyr::select(-interval)
+    dplyr::mutate(nca_interval = paste0(.data$nca_start, " - ", .data$nca_end)) |>
+    dplyr::select(-"interval")
 
   ## Add any input data columns?
   if(!is.null(include_cols) && length(include_cols) > 0) {
@@ -490,8 +491,8 @@ run_nca <- function(
     nca_output <- nca_output %>%
       dplyr::left_join(join_data, by = c(dictionary$subject_id, cols_groups)) %>%
       dplyr::group_by_at(c(dictionary$subject_id, "nca_interval", cols_groups)) %>%
-      dplyr::filter(!!rlang::sym(dictionary$time) > nca_start & # pick values from first obs > nca_start
-                      !!rlang::sym(dictionary$time) <= nca_end) %>% 
+      dplyr::filter(!!rlang::sym(dictionary$time) > .data$nca_start & # pick values from first obs > nca_start
+                      !!rlang::sym(dictionary$time) <= .data$nca_end) %>% 
       dplyr::slice(1) %>%
       dplyr::select(- !!dictionary$time) %>%
       dplyr::ungroup()
@@ -500,7 +501,7 @@ run_nca <- function(
   ## Add sequence
   if(!is.null(sequence_from)) {
     if(length(sequence_from) != 1 || !inherits(sequence_from, "character")) {
-      cli::clia_abort("`sequence_from` argument should be a character value of length 1.")
+      cli::cli_abort("`sequence_from` argument should be a character value of length 1.")
     } else {
       cli::cli_alert_info("Adding columns for treatment sequence")
     }
@@ -609,7 +610,7 @@ get_pk_parameters_from_pknca_options <- function(options = NULL,
 #' Creates a data.frame specifying start and end time, and stores it as option
 #' `single.dose.auc` in PKNCA.options()
 #' 
-#' @inheritParams run_nca
+#' @param time description...
 #' @param parameters list of parameters to calculate, indicated by TRUE and 
 #' FALSE, e.g. `list(auc.inf.pred=TRUE, cmax.pred=FALSE, ...)`
 #' 

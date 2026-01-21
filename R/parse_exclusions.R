@@ -16,7 +16,6 @@
 #' 
 #' @returns a list with: the mask (vector of T/F) that indicates the rows in the data to
 #' exclude, and a vector of reasons for exclusions (NA if not excluded)
-#' 
 parse_exclusions <- function(data, exclusions) {
   excl_cols <- names(exclusions)
   mask_all <- rep(FALSE, length(data[,1]))

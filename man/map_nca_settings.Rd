@@ -12,6 +12,9 @@ map_nca_settings(settings = NULL, mapping = "pknca")
 \item{mapping}{name of mapping to use, default is \code{pknca}. Mappings are
 stored within package in folder \code{md/nca}.}
 }
+\value{
+A list of settings.
+}
 \description{
 Map user-provided NCA settings to NCA engine (e.g. PKNCA)
 }

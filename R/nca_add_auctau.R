@@ -9,9 +9,11 @@
 #' @param output PKNCA output object
 #' @param dictionary data dictionary
 #' @param verbose verbose output?
-#'  
-#' @export
 #' 
+#' @returns 
+#' NCA output data with `auctau` added.
+#' 
+#' @export
 nca_add_auctau <- function(
   output,
   dictionary,
@@ -22,7 +24,7 @@ nca_add_auctau <- function(
     ## Check that there are intervals where we need to add it.
     ## We don't want to add auctau for single dose data
     n_rows_to_update <- output |>
-      dplyr::filter(!is.na(auclast) & nca_end < Inf) |>
+      dplyr::filter(!is.na(.data$auclast) & .data$nca_end < Inf) |>
       nrow()
     if(n_rows_to_update == 0) {
       if(verbose)
@@ -32,7 +34,7 @@ nca_add_auctau <- function(
         cli::cli_alert_info("Adding auctau for relevant subjects / intervals")
       output <- output |>
         dplyr::mutate(
-          auctau = dplyr::if_else(nca_end < Inf, auclast, NA)
+          auctau = dplyr::if_else(.data$nca_end < Inf, .data$auclast, NA)
         )
     }
   } else {

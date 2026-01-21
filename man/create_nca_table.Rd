@@ -42,6 +42,11 @@ names.}
 \item{description}{include description of parameter names into table?}
 
 \item{prefix}{prefix all column names with this, e.g. \code{superpos_}.}
+
+\item{verbose}{Verbose?}
+}
+\value{
+A data.frame or tibble.
 }
 \description{
 Confirms with layout of table commonly used in PK reports, i.e. where

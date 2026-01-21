@@ -3,6 +3,7 @@ Title: Functionality for non-compartmental analysis using PKNCA
 Version: 0.0.0.9000
 Authors@R: c(
     person("Ron", "Keizer", email = "ron@insight-rx.com", role = c("cre", "aut")),
+    person("Michael", "McCarthy", email = "michael.mccarthy@insight-rx.com", role = "ctb"),
     person("InsightRX", role = "cph")
   )
 Author: Ron Keizer
@@ -13,25 +14,28 @@ Description: Provides functions to perform NCAs using the PKNCA package
    in the features it provides for data (pre-)processing and interpretation of
    the NCA results. This package offers some of that functionality.
 Imports:
-    glue,
     cli,
     dplyr,
-    lubridate,
-    admiral,
-    ggplot2,
+    irxforge,
+    irxutils,
+    jsonlite,
+    PKNCA,
+    purrr,
     rlang,
     stringr,
     tidyr,
-    tidyselect,
-    PKNCA,
-    jsonlite,
-    irxutils
+    tidyselect
 Suggests:
+    DBI,
     fs,
     mockery,
+    RSQLite,
     testthat (>= 3.2.0),
     withr
-License: file LICENSE
+Remotes:
+    InsightRX/irxforge,
+    InsightRX/irxutils
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
@@ -39,3 +43,4 @@ Config/testthat/edition: 3
 Depends: 
     R (>= 3.5)
 LazyData: true
+URL: https://insightrx.github.io/PKNCA.extra/

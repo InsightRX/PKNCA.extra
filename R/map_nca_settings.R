@@ -4,6 +4,9 @@
 #' @param mapping name of mapping to use, default is `pknca`. Mappings are
 #' stored within package in folder `md/nca`.
 #' 
+#' @returns 
+#' A list of settings.
+#' 
 #' @export
 map_nca_settings <- function(
   settings = NULL,
@@ -52,6 +55,10 @@ map_nca_settings <- function(
 
 #' Core remapping function
 #' 
+#' @param settings TODO
+#' @param m TODO
+#' @param mapped_name TODO
+#' @param mapped_option TODO
 remap_core <- function(settings, m, mapped_name,  mapped_option) {
   if(!is.null(mapped_name)) { # check if available as mapped value
     if(!is.null(settings[[m]])) { 

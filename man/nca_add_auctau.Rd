@@ -13,6 +13,9 @@ nca_add_auctau(output, dictionary, verbose = FALSE)
 
 \item{verbose}{verbose output?}
 }
+\value{
+NCA output data with \code{auctau} added.
+}
 \description{
 Will copy \code{auclast} to \code{auctau} in the NCA output, for
 those intervals where the end of the interval is <Inf.

@@ -39,7 +39,7 @@ remap_nca_output <- function(
     dplyr::rename(!!!mapping_filtered)
   if(exclude_unmapped) {
     out <- out %>%
-      dplyr::select(all_of(keep), !! names(mapping_filtered))
+      dplyr::select(dplyr::all_of(keep), !! names(mapping_filtered))
   }
   
   ## remap names of computed NCA paramters

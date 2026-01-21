@@ -7,7 +7,6 @@
 #' description.
 #' 
 #' @export
-#'  
 get_treatment_sequence <- function(
   data, 
   dictionary,
@@ -24,7 +23,7 @@ get_treatment_sequence <- function(
     dplyr::summarise(treatment_sequence = stringr::str_c(!!rlang::sym(variable), collapse = " -> ")) %>%
     dplyr::mutate(
       sequence = dplyr::dense_rank(
-        treatment_sequence
+        .data$treatment_sequence
       )
     ) %>%
     dplyr::mutate(character_sequence = LETTERS[sequence]) %>%

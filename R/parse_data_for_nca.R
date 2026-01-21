@@ -1,18 +1,17 @@
 #' Parse data into dataset for NCA
 #' 
-#' @returns data.frame with data for NCA package
-#' 
 #' @param data list containing SDTM tables as data.frames
 #' 
-#' @export
+#' @returns data.frame with data for NCA package
 #' 
+#' @export
 parse_data_for_nca <- function(data) {
   
   ## Define metadata / settings for NCA
   ## These are things that cannot be read easily from EX dataset
   ## and are therefore hardcoded for now.
 
-  route <- get_route_from_data_column(data$ex$exroute)
+  route <- irxforge::get_route_from_data_column(data$ex$exroute)
   md <- list(
     PROFTYPE = "SD", # single dose
     DAY = 1,
@@ -28,18 +27,26 @@ parse_data_for_nca <- function(data) {
   remove_cohorts <- c("Screen Failure", "Placebo")
 
   merged_data <- data$pc %>%
-    dplyr::mutate(sampleid = paste0(stringr::str_replace_all(usubjid, "\\-", ""), "-", stringr::str_replace_all(pcdtc, "[-:]", ""))) %>%
-    dplyr::mutate(atsld = round(pctptnum * exp(rnorm(nrow(.), 0, .07)), 2)) %>% # actual time since last dose
-    stats::setNames(toupper(names(.))) %>%
+    dplyr::mutate(
+      sampleid = paste0(
+        stringr::str_replace_all(.data$usubjid, "\\-", ""), "-", 
+        stringr::str_replace_all(.data$pcdtc, "[-:]", "")
+      )
+    ) %>%
+    dplyr::mutate(
+      # actual time since last dose:
+      atsld = round(.data$pctptnum * exp(stats::rnorm(dplyr::n(), 0, .07)), 2)
+    ) %>%
+    dplyr::rename_with(toupper) %>%
     merge(
       data$dm %>% # join with study-arm data
-      stats::setNames(toupper(names(.))) %>%
+      dplyr::rename_with(toupper) %>%
       dplyr::select("USUBJID", "ACTARM"),
       by = "USUBJID"
     ) %>%
     merge(
       data$ex %>%  # join with dose administration data
-      stats::setNames(toupper(names(.))) %>%
+      dplyr::rename_with(toupper) %>%
       dplyr::select("USUBJID", "EXDOSE", "EXDOSU", "EXROUTE", "VISIT", "VISITNUM"),
       by = c("USUBJID", "VISITNUM")
     ) %>%
