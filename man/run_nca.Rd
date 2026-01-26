@@ -22,6 +22,7 @@ run_nca(
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
   no_dots = TRUE,
   path = NULL,
+  check_grouping = FALSE,
   verbose = FALSE,
   ...
 )
@@ -116,6 +117,11 @@ Other options may be added in future. Default is:
 (e.g. \code{aucinf.obs}) with underscores (\code{aucinf_obs}).}
 
 \item{path}{path to file to store output object from PKNCA as RDS (optional)}
+
+\item{check_grouping}{check whether the grouping specified in \code{groups} is
+likely to be correct for NCA, and is not creating groups that are too small
+for NCA to be able to calculate half-life and other parameters.
+See \code{check_nca_grouping()} for details.}
 
 \item{verbose}{verbose output?}
 

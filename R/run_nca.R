@@ -36,6 +36,10 @@
 #' multi-dose NCAs. Alternative to specifying a NONMEM-style datasett to `data`.
 #' @param path path to file to store output object from PKNCA as RDS (optional)
 #' @param groups optional grouping variable, e.g. `ACTARM`.
+#' @param check_grouping check whether the grouping specified in `groups` is 
+#' likely to be correct for NCA, and is not creating groups that are too small
+#' for NCA to be able to calculate half-life and other parameters. 
+#' See `check_nca_grouping()` for details.
 #' @param intervals specify time intervals for NCA calculations. The passed argument
 #' should be a data.frame, with at least the `start` and `end` time for each
 #' row that specifies the interval. `Inf` is allowed to specify the end of the
@@ -139,6 +143,7 @@ run_nca <- function(
   ),
   no_dots = TRUE,
   path = NULL,
+  check_grouping = FALSE,
   verbose = FALSE,
   ...
 ) {
@@ -239,6 +244,20 @@ run_nca <- function(
     )
     cli::cli_alert_info("NCA input data type: {approaches[[nca_approach]]}")
   }
+
+  if(check_grouping) {
+    grouping_is_correct <- check_nca_grouping(
+      data = pk_data,
+      groups = groups,
+      dictionary = dictionary,
+      settings = settings,
+      threshold = 0.7
+    )
+    if(!grouping_is_correct) {
+      cli::cli_abort("The grouping is likely incorrect, and will results in too small groups for NCA to run properly. Please adjust `groups` argument.")
+    }
+  }
+
 
   ## Prepare id and time columns, and parse into an NCA-ready dataset
   ## Catching errors here, because we often have grouping errors that 
