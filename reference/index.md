@@ -5,6 +5,14 @@
 - [`apply_pknca_options()`](https://insightrx.github.io/PKNCA.extra/reference/apply_pknca_options.md)
   : Read settings from a JSON file, and pass to PKNCA.options()
 
+- [`check_nca_grouping()`](https://insightrx.github.io/PKNCA.extra/reference/check_nca_grouping.md)
+  :
+
+  Check that `grouping` specified to PKNCA is likely to be correct If
+  the grouping results in most groups having too few datapoints to
+  perform NCA and calculate half-life, then the grouping is likely
+  wrong.
+
 - [`create_nca_table()`](https://insightrx.github.io/PKNCA.extra/reference/create_nca_table.md)
   : Create a table for NCA results
 

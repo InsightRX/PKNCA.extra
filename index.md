@@ -22,7 +22,7 @@ pak::pak("InsightRX/PKNCA.extra")
 See at
 [`https://insightrx.github.io/PKNCA.extra/`](https://insightrx.github.io/PKNCA.extra/reference/index.html)
 and also in the installed package:
-[`help(package = "PKNCA.extra")`](https://rdrr.io/pkg/PKNCA.extra/man).
+[`help(package = "PKNCA.extra")`](https://insightrx.github.io/PKNCA.extra/reference).
 
 ## License
 
