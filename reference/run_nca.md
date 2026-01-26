@@ -25,6 +25,7 @@ run_nca(
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
   no_dots = TRUE,
   path = NULL,
+  check_grouping = FALSE,
   verbose = FALSE,
   ...
 )
@@ -153,6 +154,14 @@ run_nca(
 - path:
 
   path to file to store output object from PKNCA as RDS (optional)
+
+- check_grouping:
+
+  check whether the grouping specified in `groups` is likely to be
+  correct for NCA, and is not creating groups that are too small for NCA
+  to be able to calculate half-life and other parameters. See
+  [`check_nca_grouping()`](https://insightrx.github.io/PKNCA.extra/reference/check_nca_grouping.md)
+  for details.
 
 - verbose:
 
