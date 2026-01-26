@@ -221,3 +221,54 @@ test_that("NCA gives warning when partial AUC specifies duplicate interva but do
   expect_equal(round(sum(nca_data$auclast), 1), 473.1)
   expect_equal(nca_data$nca_interval, rep(c("0 - 24", "0 - Inf"), 4))
 })
+
+describe("Test `check_grouping` argument", {
+  
+  test_that("run_nca with check_grouping=TRUE passes when groups have sufficient data", {
+    # Create data with sufficient points per group
+    data <- dat[dat$USUBJID %in% ids[1:10], ]
+    
+    # Should pass without error
+    expect_no_error(
+      nca_data <- run_nca(
+        data,
+        groups = "ACTARM",
+        check_grouping = TRUE,
+        verbose = FALSE
+      )
+    )
+  })
+  
+  test_that("run_nca with check_grouping=TRUE fails when groups have insufficient data", {
+    # Create data where most subjects have too few points
+    data <- dat[dat$USUBJID %in% ids[1:10], ]
+    
+    # Should error due to insufficient data points
+    expect_error(
+      expect_warning(
+        run_nca(
+          data,
+          groups = c("ACTARM", "PCTPTNUM"),
+          check_grouping = TRUE,
+          verbose = FALSE
+        )
+      ),
+      "The grouping is likely incorrect"
+    )
+  })
+  
+  test_that("run_nca check_grouping works with multiple grouping variables", {
+    data <- dat[dat$USUBJID %in% ids[1:20], ]
+    
+    # Should pass with multiple groups
+    expect_no_error(
+      nca_data <- run_nca(
+        data,
+        groups = c("ACTARM", "EXROUTE"),
+        check_grouping = TRUE,
+        verbose = FALSE
+      )
+    )
+  })
+  
+})
