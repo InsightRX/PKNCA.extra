@@ -96,7 +96,7 @@ get_nca_individual_fits <- function(
       blq = dplyr::if_else(.data[[vars$concentration]] == 0, 1, 0),
       tmp_idx = length(.data$exclude):1 - sum(.data$blq),
       used_in_fit = ifelse(
-        .data$tmp_idx < .data$lambda.z.n.points & .data$tmp_idx >= 0, 1, 0
+        .data$tmp_idx <= .data$lambda.z.n.points & .data$tmp_idx >= 0, 1, 0
       )
     ) %>%
     dplyr::select(-"tmp_idx") %>%
