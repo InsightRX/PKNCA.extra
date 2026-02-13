@@ -21,3 +21,4 @@ test_that("calculations are correct, for NCA with 2 groupings (subject, treatmen
     3
   )
 })
+  
