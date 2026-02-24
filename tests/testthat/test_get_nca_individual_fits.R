@@ -11,14 +11,181 @@ test_that("calculations are correct, for NCA with 2 groupings (subject, treatmen
   expect_equal(fit$prediction[1:5], c(NA_real_, NA_real_, NA_real_, NA_real_, NA_real_))
   expect_equal(round(tail(fit$prediction, 5), 3), c(1.837, 1.685, 1.546, NA, 1.418))
   expect_equal(fit$SITEID[1:5], rep(1234, 5))
-  
+
   ## check correct number of points used in fit marked in data
   expect_equal(
-    fit |> 
+    fit |>
       dplyr::filter(subject_id == 12341001, is.na(prediction), TREATXT == "D 2mg + g") |>
       dplyr::pull(used_in_fit) |>
     sum(),
     3
   )
 })
-  
+
+## Tests using run_nca() output
+## nca_admiral data: PCORRES = concentration, PCTPTNUM = time, USUBJID = subject ID
+## Subject 01-701-1028 has 14 timepoints, pre-dose BLQ at t=0, non-BLQ from t=0.08
+## Subject 01-701-1033 has 14 timepoints
+
+test_that("get_nca_individual_fits returns correct structure from run_nca output", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  nca_data <- run_nca(dat[dat$USUBJID %in% ids[1:2],], verbose = FALSE)
+  nca_obj <- attr(nca_data, "PKNCA_object")
+
+  fit <- get_nca_individual_fits(nca_obj)
+
+  expect_s3_class(fit, "data.frame")
+  expect_equal(
+    names(fit),
+    c("PCORRES", "PCTPTNUM", "USUBJID", "n_points", "r_squared",
+      "adj_r_squared", "blq", "used_in_fit", "excluded", "exclude_reason", "prediction")
+  )
+  ## 14 obs per subject + 40 prediction grid points per subject
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+  pred_only <- dplyr::filter(fit, !is.na(prediction))
+  expect_equal(nrow(obs_only), 14 * 2)
+  expect_equal(nrow(pred_only), 40 * 2)
+})
+
+test_that("used_in_fit count matches lambda.z.n.points per subject", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  nca_data <- run_nca(dat[dat$USUBJID %in% ids[1:2],], verbose = FALSE)
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+  check <- obs_only |>
+    dplyr::group_by(USUBJID) |>
+    dplyr::summarise(
+      used_count = sum(used_in_fit, na.rm = TRUE),
+      n_pts = dplyr::first(n_points[!is.na(n_points)])
+    )
+
+  ## used_in_fit sum must equal n_points for each subject
+  expect_equal(check$used_count, check$n_pts)
+
+  ## specific expected values for these two subjects
+  expect_equal(check$used_count[check$USUBJID == ids[1]], 3)
+  expect_equal(check$used_count[check$USUBJID == ids[2]], 7)
+})
+
+test_that("BLQ points are never flagged as used_in_fit", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  nca_data <- run_nca(dat[dat$USUBJID %in% ids[1:5],], verbose = FALSE)
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  blq_obs <- dplyr::filter(fit, is.na(prediction), blq == 1)
+  expect_true(nrow(blq_obs) > 0)
+  expect_true(all(blq_obs$used_in_fit == 0))
+})
+
+test_that("excluded terminal-phase point has used_in_fit=0 and excluded=1, sum still matches n_points", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  ## For subject 01-701-1028, the 48h sample is in the 3-point terminal fit (24h, 36h, 48h)
+  ## Excluding it causes PKNCA to recalculate lambda.z using earlier points
+  nca_data <- run_nca(
+    dat[dat$USUBJID == ids[1],],
+    exclude_points = list(
+      SAMPLEID = list(id = "017011028-20130721T000000", reason = "test exclusion")
+    ),
+    verbose = FALSE
+  )
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+
+  ## Excluded 48h point must be flagged correctly
+  excl_point <- dplyr::filter(obs_only, PCTPTNUM == 48)
+  expect_equal(nrow(excl_point), 1)
+  expect_equal(excl_point$excluded, 1)
+  expect_equal(excl_point$exclude_reason, "test exclusion")
+  expect_equal(excl_point$used_in_fit, 0)
+
+  ## Sum of used_in_fit must still equal n_points (recalculated by PKNCA)
+  n_pts <- unique(obs_only$n_points[!is.na(obs_only$n_points)])
+  expect_equal(sum(obs_only$used_in_fit, na.rm = TRUE), n_pts)
+})
+
+test_that("excluding a non-terminal point does not change used_in_fit for terminal points", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  ## Exclude t=2h for subject 01-701-1028, which is well outside the terminal phase
+  ## (terminal fit uses only last 3 points: 24h, 36h, 48h)
+  nca_data <- run_nca(
+    dat[dat$USUBJID == ids[1],],
+    exclude_points = list(
+      SAMPLEID = list(id = "017011028-20130719T020000", reason = "non-terminal exclusion")
+    ),
+    verbose = FALSE
+  )
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+
+  ## Excluded t=2h point must be flagged
+  excl_point <- dplyr::filter(obs_only, PCTPTNUM == 2)
+  expect_equal(excl_point$excluded, 1)
+  expect_equal(excl_point$exclude_reason, "non-terminal exclusion")
+  expect_equal(excl_point$used_in_fit, 0)
+
+  ## n_points unchanged (PKNCA still finds same 3-point terminal fit)
+  n_pts <- unique(obs_only$n_points[!is.na(obs_only$n_points)])
+  expect_equal(n_pts, 3)
+
+  ## The three terminal points (24h, 36h, 48h) are still used_in_fit
+  terminal_pts <- dplyr::filter(obs_only, PCTPTNUM %in% c(24, 36, 48))
+  expect_equal(terminal_pts$used_in_fit, c(1, 1, 1))
+
+  ## Sum still equals n_points
+  expect_equal(sum(obs_only$used_in_fit, na.rm = TRUE), n_pts)
+})
+
+test_that("excluding multiple points across subjects is reflected correctly in used_in_fit", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  ## Exclude one terminal-phase point from each of the first two subjects
+  ## Subject 01-701-1028: exclude 48h (terminal)
+  ## Subject 01-701-1033: exclude its last timepoint via a separate check
+  nca_data <- run_nca(
+    dat[dat$USUBJID %in% ids[1:2],],
+    exclude_points = list(
+      SAMPLEID = list(
+        id = c("017011028-20130721T000000"),  # 48h for subject 1
+        reason = c("test exclusion")
+      )
+    ),
+    verbose = FALSE
+  )
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+
+  ## For each subject, used_in_fit count must match n_points
+  check <- obs_only |>
+    dplyr::group_by(USUBJID) |>
+    dplyr::summarise(
+      used_count = sum(used_in_fit, na.rm = TRUE),
+      n_pts = dplyr::first(n_points[!is.na(n_points)]),
+      n_excluded = sum(excluded)
+    )
+
+  expect_equal(check$used_count, check$n_pts)
+
+  ## Subject 1 has 1 excluded point; subject 2 has none
+  expect_equal(check$n_excluded[check$USUBJID == ids[1]], 1)
+  expect_equal(check$n_excluded[check$USUBJID == ids[2]], 0)
+})
