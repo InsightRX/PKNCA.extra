@@ -73,6 +73,32 @@ test_that("used_in_fit count matches lambda.z.n.points per subject", {
   expect_equal(check$used_count[check$USUBJID == ids[2]], 7)
 })
 
+test_that("NA concentration does not produce NA used_in_fit values", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  nca_data <- run_nca(dat[dat$USUBJID == ids[1],], verbose = FALSE)
+  nca_obj <- attr(nca_data, "PKNCA_object")
+
+  ## Inject an NA concentration at a non-terminal timepoint (t=1.5h, row 5)
+  nca_obj$data$conc$data[5, "PCORRES"] <- NA
+
+  ## Before the fix, used_in_fit was NA for all rows when any concentration was NA
+  fit <- get_nca_individual_fits(nca_obj)
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+
+  ## No used_in_fit values should be NA
+  expect_false(any(is.na(obs_only$used_in_fit)))
+
+  ## Sum of used_in_fit must still equal n_points
+  n_pts <- unique(obs_only$n_points[!is.na(obs_only$n_points)])
+  expect_equal(sum(obs_only$used_in_fit), n_pts)
+
+  ## The NA-concentration point itself should not be used in the terminal fit
+  na_pt <- dplyr::filter(obs_only, PCTPTNUM == 1.5)
+  expect_equal(na_pt$used_in_fit, 0)
+})
+
 test_that("BLQ points are never flagged as used_in_fit", {
   dat <- nca_admiral
   ids <- unique(dat$USUBJID)
