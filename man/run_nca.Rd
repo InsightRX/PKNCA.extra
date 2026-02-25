@@ -96,15 +96,15 @@ to exclude entire subjects, e.g. \verb{list("subject_id = c("103, "105")}}
 \item{exclude_lambda_z}{list of points to exclude but exclusions are only
 for the calculation of lambda-z and downstream parameters (halflife, CL, V,
 AUCinf etc) but not summarization parameters like Cmax, Tmax, etc.
-List with similar structure as \code{excxlude_points}.}
+List with similar structure as \code{exclude_points}.}
 
-\item{include_lambda_z}{list of points to exclude but exclusions are only
-for the calculation of lambda-z and downstream parameters (halflife, CL, V,
-AUCinf etc) but not summarization parameters like Cmax, Tmax, etc.
-List with similar structure as \code{excxlude_points}.
+\item{include_lambda_z}{list of points to include for the calculation of
+lambda-z and downstream parameters (halflife, CL, V, AUCinf etc) but not
+summarization parameters like Cmax, Tmax, etc.
+List with similar structure as \code{exclude_points}.
 Please note that for any subject and interval where
-\code{include_points} are specified, PKNCA will not run the automated
-curve-stripping procedure and the \code{exclude_points} argument (if specified)
+\code{include_lambda_z} are specified, PKNCA will not run the automated
+curve-stripping procedure and the \code{exclude_lambda_z} argument (if specified)
 will be ignored for that subject and AUC interval.}
 
 \item{sequence_from}{optional. Argument should specify the column name
