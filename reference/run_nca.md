@@ -20,6 +20,8 @@ run_nca(
   partial_auc = NULL,
   exclude_points = NULL,
   exclude_subjects = NULL,
+  exclude_lambda_z = NULL,
+  include_lambda_z = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
@@ -109,15 +111,33 @@ run_nca(
 
 - exclude_points:
 
-  list of points to exclude, based on name(s) in the list that should
-  match column name in the input dataset. E.g.
+  list of points to exclude for entire NCA analysis, based on name(s) in
+  the list that should match column name in the input dataset. E.g.
   `list("sample_id" = c("12345", "23456"))`. This could similarly be
   used to exclude entire subjects, e.g.
   `list("subject_id = c("103, "105")`
 
 - exclude_subjects:
 
-  description...
+  optional, vector of subjects to exclude from NCA
+
+- exclude_lambda_z:
+
+  list of points to exclude but exclusions are only for the calculation
+  of lambda-z and downstream parameters (halflife, CL, V, AUCinf etc)
+  but not summarization parameters like Cmax, Tmax, etc. List with
+  similar structure as `exclude_points`.
+
+- include_lambda_z:
+
+  list of points to include for the calculation of lambda-z and
+  downstream parameters (halflife, CL, V, AUCinf etc) but not
+  summarization parameters like Cmax, Tmax, etc. List with similar
+  structure as `exclude_points`. Please note that for any subject and
+  interval where `include_lambda_z` are specified, PKNCA will not run
+  the automated curve-stripping procedure and the `exclude_lambda_z`
+  argument (if specified) will be ignored for that subject and AUC
+  interval.
 
 - sequence_from:
 

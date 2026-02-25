@@ -57,6 +57,8 @@ rds file if <code>path</code> is specified.</p>
 <span>  partial_auc <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  exclude_points <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  exclude_subjects <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  exclude_lambda_z <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  include_lambda_z <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sequence_from <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  add_auctau <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  post <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>accumulation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>parameters <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auctau"</span>, <span class="st">"cmax"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -145,14 +147,33 @@ as argument.</p></dd>
 
 
 <dt id="arg-exclude-points">exclude_points<a class="anchor" aria-label="anchor" href="#arg-exclude-points"></a></dt>
-<dd><p>list of points to exclude, based on name(s) in the
-list that should match column name in the input dataset.
+<dd><p>list of points to exclude for entire NCA analysis,
+based on name(s) in the list that should match column name in the input
+dataset.
 E.g. <code>list("sample_id" = c("12345", "23456"))</code>. This could similarly be used
 to exclude entire subjects, e.g. <code>list("subject_id = c("103, "105")</code></p></dd>
 
 
 <dt id="arg-exclude-subjects">exclude_subjects<a class="anchor" aria-label="anchor" href="#arg-exclude-subjects"></a></dt>
-<dd><p>description...</p></dd>
+<dd><p>optional, vector of subjects to exclude from NCA</p></dd>
+
+
+<dt id="arg-exclude-lambda-z">exclude_lambda_z<a class="anchor" aria-label="anchor" href="#arg-exclude-lambda-z"></a></dt>
+<dd><p>list of points to exclude but exclusions are only
+for the calculation of lambda-z and downstream parameters (halflife, CL, V,
+AUCinf etc) but not summarization parameters like Cmax, Tmax, etc.
+List with similar structure as <code>exclude_points</code>.</p></dd>
+
+
+<dt id="arg-include-lambda-z">include_lambda_z<a class="anchor" aria-label="anchor" href="#arg-include-lambda-z"></a></dt>
+<dd><p>list of points to include for the calculation of
+lambda-z and downstream parameters (halflife, CL, V, AUCinf etc) but not
+summarization parameters like Cmax, Tmax, etc.
+List with similar structure as <code>exclude_points</code>.
+Please note that for any subject and interval where
+<code>include_lambda_z</code> are specified, PKNCA will not run the automated
+curve-stripping procedure and the <code>exclude_lambda_z</code> argument (if specified)
+will be ignored for that subject and AUC interval.</p></dd>
 
 
 <dt id="arg-sequence-from">sequence_from<a class="anchor" aria-label="anchor" href="#arg-sequence-from"></a></dt>
