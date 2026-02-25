@@ -98,11 +98,24 @@
 #' Other options may be added in future. Default is:
 #' `list("accumulation" = list("parameters" = c("auclast", "cmax")))`.
 #' 
-#' @param exclude_points list of points to exclude, based on name(s) in the 
-#' list that should match column name in the input dataset. 
+#' @param exclude_points list of points to exclude for entire NCA analysis, 
+#' based on name(s) in the list that should match column name in the input 
+#' dataset. 
 #' E.g. `list("sample_id" = c("12345", "23456"))`. This could similarly be used
 #' to exclude entire subjects, e.g. `list("subject_id = c("103, "105")`
-#' @param exclude_subjects description...
+#' @param exclude_lambda_z list of points to exclude but exclusions are only 
+#' for the calculation of lambda-z and downstream parameters (halflife, CL, V, 
+#' AUCinf etc) but not summarization parameters like Cmax, Tmax, etc. 
+#' List with similar structure as `excxlude_points`.
+#' @param include_lambda_z list of points to exclude but exclusions are only 
+#' for the calculation of lambda-z and downstream parameters (halflife, CL, V, 
+#' AUCinf etc) but not summarization parameters like Cmax, Tmax, etc. 
+#' List with similar structure as `excxlude_points`.
+#' Please note that for any subject and interval where 
+#' `include_points` are specified, PKNCA will not run the automated 
+#' curve-stripping procedure and the `exclude_points` argument (if specified) 
+#' will be ignored for that subject and AUC interval.
+#' @param exclude_subjects optional, vector of subjects to exclude from NCA
 #' @param no_dots if `TRUE` (default) will replace any dots in parameter names
 #' (e.g. `aucinf.obs`) with underscores (`aucinf_obs`).
 #' @param verbose verbose output?
@@ -131,6 +144,8 @@ run_nca <- function(
   partial_auc = NULL,
   exclude_points = NULL,
   exclude_subjects = NULL,
+  exclude_lambda_z = NULL,
+  include_lambda_z = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(
@@ -258,16 +273,44 @@ run_nca <- function(
     }
   }
 
+  ## Handle lambda-z exclusions
+  lambda_z_excl_col <- NULL
+  if (!is.null(exclude_lambda_z)) {
+    if (verbose) cli::cli_alert_info("Applying exclusion of data points from lambda-z calculation")
+    excl_lz <- parse_exclusions(pk_data, exclude_lambda_z)
+    if (any(excl_lz$mask)) {
+      lambda_z_excl_col <- "exclude_hl"
+      pk_data[[lambda_z_excl_col]] <- excl_lz$mask
+    } else {
+      cli::cli_alert_warning("Requested lambda-z datapoints to be excluded not found in data")
+    }
+  }
+
+  ## Handle lambda-z inclusions (force datapoints for use in half-life calculations)
+  lambda_z_incl_col <- NULL
+  if (!is.null(include_lambda_z)) {
+    if (verbose) cli::cli_alert_info("Applying inclusion of specific data points in lambda-z calculation")
+    incl_lz <- parse_exclusions(pk_data, include_lambda_z)
+    if (any(incl_lz$mask)) {
+      lambda_z_incl_col <- "include_hl"
+      pk_data[[lambda_z_incl_col]] <- incl_lz$mask
+    } else {
+      cli::cli_alert_warning("Requested lambda-z datapoints to be included not found in data")
+    }
+  }
 
   ## Prepare id and time columns, and parse into an NCA-ready dataset
-  ## Catching errors here, because we often have grouping errors that 
+  ## Catching errors here, because we often have grouping errors that
   ## we want to communicate more clearly to the user.
   tryCatch({
-    conc_obj <- PKNCA::PKNCAconc(
+    pknca_conc_args <- list(
       data = pk_data %>%
         dplyr::mutate(!!dictionary$time := dplyr::if_else(.data[[dictionary$time]] < 0, 0, .data[[dictionary$time]])),
       formula = conc_formula
     )
+    if (!is.null(lambda_z_excl_col)) pknca_conc_args$exclude_half.life <- lambda_z_excl_col
+    if (!is.null(lambda_z_incl_col)) pknca_conc_args$include_half.life <- lambda_z_incl_col
+    conc_obj <- do.call(PKNCA::PKNCAconc, pknca_conc_args)
   }, error = function(e) {
     msg <- ""
     if(grep("not unique per group", e$message)) {

@@ -259,7 +259,7 @@ describe("Test `check_grouping` argument", {
   
   test_that("run_nca check_grouping works with multiple grouping variables", {
     data <- dat[dat$USUBJID %in% ids[1:20], ]
-    
+
     # Should pass with multiple groups
     expect_no_error(
       nca_data <- run_nca(
@@ -270,5 +270,120 @@ describe("Test `check_grouping` argument", {
       )
     )
   })
-  
+
+})
+
+describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
+
+  test_that("exclude_lambda_z excludes specific points from lambda-z fit only", {
+    nca_base <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      no_dots = FALSE,
+      verbose = FALSE
+    )
+    # Exclude the 36h timepoint for subject 1 from the lambda-z fit
+    nca_excl <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      no_dots = FALSE,
+      verbose = FALSE,
+      exclude_lambda_z = list(
+        SAMPLEID = list(
+          id = "017011028-20130720T120000",
+          reason = "test exclusion"
+        )
+      )
+    )
+    # Subject 1: half-life and n.points change because one point is excluded from lambda-z
+    expect_false(nca_excl$half.life[1] == nca_base$half.life[1])
+    expect_equal(round(nca_excl$half.life[1], 4), 15.3731)
+    expect_equal(nca_excl$lambda.z.n.points[1], 4)  # was 3, now 4 (different window)
+    # Subject 2: unaffected (exclusion only applied to subject 1's sample)
+    expect_equal(nca_excl$half.life[2], nca_base$half.life[2])
+  })
+
+  test_that("exclude_lambda_z does not affect Cmax or AUClast", {
+    nca_base <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      no_dots = FALSE,
+      verbose = FALSE
+    )
+    nca_excl <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      no_dots = FALSE,
+      verbose = FALSE,
+      exclude_lambda_z = list(
+        SAMPLEID = list(
+          id = "017011028-20130720T120000",
+          reason = "test exclusion"
+        )
+      )
+    )
+    # Summary parameters (Cmax, AUClast) should be unchanged
+    expect_equal(nca_excl$cmax, nca_base$cmax)
+    expect_equal(nca_excl$auclast, nca_base$auclast)
+    expect_equal(nca_excl$tmax, nca_base$tmax)
+  })
+
+  test_that("include_lambda_z forces specific points into the lambda-z fit", {
+    # For subject 2, force only the 3 latest timepoints into the lambda-z fit
+    nca_base <- run_nca(
+      dat[dat$USUBJID == ids[2], ],
+      no_dots = FALSE,
+      verbose = FALSE
+    )
+    nca_incl <- suppressWarnings(run_nca(
+      dat[dat$USUBJID == ids[2], ],
+      no_dots = FALSE,
+      verbose = FALSE,
+      include_lambda_z = list(
+        SAMPLEID = list(
+          id = c(
+            "017011033-20140319T000000",
+            "017011033-20140319T120000",
+            "017011033-20140320T000000"
+          ),
+          reason = "forced inclusion"
+        )
+      )
+    ))
+    # Half-life differs from baseline (baseline uses 7 points; forced uses only 3)
+    expect_false(nca_incl$half.life == nca_base$half.life)
+    expect_equal(round(nca_incl$half.life, 4), 15.1423)
+    expect_equal(nca_incl$lambda.z.n.points, 3)  # exactly the 3 forced points
+  })
+
+  test_that("exclude_lambda_z gives warning when specified IDs not found in data", {
+    expect_message(
+      run_nca(
+        dat[dat$USUBJID %in% ids[1:2], ],
+        no_dots = FALSE,
+        verbose = FALSE,
+        exclude_lambda_z = list(
+          SAMPLEID = list(
+            id = "NONEXISTENT-SAMPLE-ID",
+            reason = "test"
+          )
+        )
+      ),
+      "lambda-z datapoints to be excluded not found"
+    )
+  })
+
+  test_that("include_lambda_z gives warning when specified IDs not found in data", {
+    expect_message(
+      run_nca(
+        dat[dat$USUBJID %in% ids[1:2], ],
+        no_dots = FALSE,
+        verbose = FALSE,
+        include_lambda_z = list(
+          SAMPLEID = list(
+            id = "NONEXISTENT-SAMPLE-ID",
+            reason = "test"
+          )
+        )
+      ),
+      "lambda-z datapoints to be included not found"
+    )
+  })
+
 })
