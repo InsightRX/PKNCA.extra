@@ -106,14 +106,14 @@
 #' @param exclude_lambda_z list of points to exclude but exclusions are only 
 #' for the calculation of lambda-z and downstream parameters (halflife, CL, V, 
 #' AUCinf etc) but not summarization parameters like Cmax, Tmax, etc. 
-#' List with similar structure as `excxlude_points`.
-#' @param include_lambda_z list of points to exclude but exclusions are only 
-#' for the calculation of lambda-z and downstream parameters (halflife, CL, V, 
-#' AUCinf etc) but not summarization parameters like Cmax, Tmax, etc. 
-#' List with similar structure as `excxlude_points`.
+#' List with similar structure as `exclude_points`.
+#' @param include_lambda_z list of points to include for the calculation of 
+#' lambda-z and downstream parameters (halflife, CL, V, AUCinf etc) but not 
+#' summarization parameters like Cmax, Tmax, etc. 
+#' List with similar structure as `exclude_points`.
 #' Please note that for any subject and interval where 
-#' `include_points` are specified, PKNCA will not run the automated 
-#' curve-stripping procedure and the `exclude_points` argument (if specified) 
+#' `include_lambda_z` are specified, PKNCA will not run the automated 
+#' curve-stripping procedure and the `exclude_lambda_z` argument (if specified) 
 #' will be ignored for that subject and AUC interval.
 #' @param exclude_subjects optional, vector of subjects to exclude from NCA
 #' @param no_dots if `TRUE` (default) will replace any dots in parameter names
