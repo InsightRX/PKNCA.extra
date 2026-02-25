@@ -17,6 +17,8 @@ run_nca(
   partial_auc = NULL,
   exclude_points = NULL,
   exclude_subjects = NULL,
+  exclude_lambda_z = NULL,
+  include_lambda_z = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
@@ -83,12 +85,27 @@ row. Any other parameters specified in the data.frame as column will also be
 calculated, e.g. \code{cmax=TRUE}. Currently, only a single row can be supplied
 as argument.}
 
-\item{exclude_points}{list of points to exclude, based on name(s) in the
-list that should match column name in the input dataset.
+\item{exclude_points}{list of points to exclude for entire NCA analysis,
+based on name(s) in the list that should match column name in the input
+dataset.
 E.g. \code{list("sample_id" = c("12345", "23456"))}. This could similarly be used
 to exclude entire subjects, e.g. \verb{list("subject_id = c("103, "105")}}
 
-\item{exclude_subjects}{description...}
+\item{exclude_subjects}{optional, vector of subjects to exclude from NCA}
+
+\item{exclude_lambda_z}{list of points to exclude but exclusions are only
+for the calculation of lambda-z and downstream parameters (halflife, CL, V,
+AUCinf etc) but not summarization parameters like Cmax, Tmax, etc.
+List with similar structure as \code{excxlude_points}.}
+
+\item{include_lambda_z}{list of points to exclude but exclusions are only
+for the calculation of lambda-z and downstream parameters (halflife, CL, V,
+AUCinf etc) but not summarization parameters like Cmax, Tmax, etc.
+List with similar structure as \code{excxlude_points}.
+Please note that for any subject and interval where
+\code{include_points} are specified, PKNCA will not run the automated
+curve-stripping procedure and the \code{exclude_points} argument (if specified)
+will be ignored for that subject and AUC interval.}
 
 \item{sequence_from}{optional. Argument should specify the column name
 that indicates the treatment e.g. for food-effect cross-over trials. It
