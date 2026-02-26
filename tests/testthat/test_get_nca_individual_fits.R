@@ -229,11 +229,11 @@ test_that("excluding multiple points across subjects is reflected correctly in u
 
 test_that("exclude_lambda_z: excluded point has used_in_fit=0, sum matches n_points", {
   dat <- nca_admiral
-  ids <- unique(dat$USUBJID)
 
-  ## Exclude the 36h sample from the lambda-z fit only (not from NCA)
+  ## Exclude the 36h sample from the lambda-z fit only (not from NCA),
+  ## for subject 01-701-1028
   nca_data <- run_nca(
-    dat[dat$USUBJID == ids[1], ],
+    dat[dat$USUBJID == "01-701-1028", ],
     verbose = FALSE,
     exclude_lambda_z = list(
       SAMPLEID = list(

@@ -98,8 +98,8 @@ get_nca_individual_fits <- function(
     ## Make sure not to flag BLQ points as used_in_fit
     dplyr::mutate(
       blq = dplyr::if_else(.data[[vars$concentration]] == 0, 1, 0),
-      ## Candidate: non-BLQ, not excluded from NCA, not excluded from lambda-z only
-      candidate = (is.na(blq) | blq == 0) & is.na(exclude),
+      ## Candidate: non-missing, non-BLQ, not excluded from NCA, not excluded from lambda-z only
+      candidate = !is.na(.data[[vars$concentration]]) & blq == 0 & is.na(exclude),
       candidate = if (!is.null(excl_hl_col)) candidate & !.data[[excl_hl_col]] else candidate,
       candidate = dplyr::if_else(is.na(candidate), FALSE, candidate),
       candidate_nr = sum(candidate) - cumsum(candidate),
