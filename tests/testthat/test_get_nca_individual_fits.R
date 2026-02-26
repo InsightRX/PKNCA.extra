@@ -215,3 +215,134 @@ test_that("excluding multiple points across subjects is reflected correctly in u
   expect_equal(check$n_excluded[check$USUBJID == ids[1]], 1)
   expect_equal(check$n_excluded[check$USUBJID == ids[2]], 0)
 })
+
+## Tests for include_lambda_z and exclude_lambda_z interaction with used_in_fit
+## Subject 01-701-1028 (ids[1]): 14 timepoints, BLQ at t=0, non-BLQ from t=0.08
+##   Default terminal fit: 3 points (24h, 36h, 48h)
+##   SAMPLEID for 36h: "017011028-20130720T120000"
+##   SAMPLEID for 48h: "017011028-20130721T000000"
+## Subject 01-701-1033 (ids[2]): 14 timepoints
+##   Default terminal fit: 7 points
+##   SAMPLEID for 8h:  "017011033-20140318T080000"
+##   SAMPLEID for 12h: "017011033-20140318T120000"
+##   SAMPLEID for 16h: "017011033-20140318T160000"
+
+test_that("exclude_lambda_z: excluded point has used_in_fit=0, sum matches n_points", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  ## Exclude the 36h sample from the lambda-z fit only (not from NCA)
+  nca_data <- run_nca(
+    dat[dat$USUBJID == ids[1], ],
+    verbose = FALSE,
+    exclude_lambda_z = list(
+      SAMPLEID = list(
+        id = "017011028-20130720T120000",
+        reason = "exclude from lambda-z"
+      )
+    )
+  )
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+
+  ## 36h was excluded from lambda-z, so it must not be flagged as used_in_fit
+  pt_36h <- dplyr::filter(obs_only, PCTPTNUM == 36)
+  expect_equal(pt_36h$used_in_fit, 0)
+
+  ## 36h is NOT excluded from NCA (not in 'exclude' column), so excluded=0
+  expect_equal(pt_36h$excluded, 0)
+
+  ## Sum of used_in_fit must match n_points (PKNCA now uses a 4-point window)
+  n_pts <- unique(obs_only$n_points[!is.na(obs_only$n_points)])
+  expect_equal(sum(obs_only$used_in_fit, na.rm = TRUE), n_pts)
+
+  ## The actually-used points (12h, 16h, 24h, 48h) should be flagged
+  used_times <- sort(obs_only$PCTPTNUM[obs_only$used_in_fit == 1])
+  expect_equal(used_times, c(12, 16, 24, 48))
+})
+
+test_that("include_lambda_z: forced points are used_in_fit=1, others are 0", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  ## Force 8h, 12h, 16h for subject 2 (non-terminal points)
+  nca_data <- suppressWarnings(run_nca(
+    dat[dat$USUBJID == ids[2], ],
+    verbose = FALSE,
+    include_lambda_z = list(
+      SAMPLEID = list(
+        id = c(
+          "017011033-20140318T080000",
+          "017011033-20140318T120000",
+          "017011033-20140318T160000"
+        ),
+        reason = "forced inclusion"
+      )
+    )
+  ))
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+
+  ## Exactly the 3 forced points should have used_in_fit = 1
+  used_times <- sort(obs_only$PCTPTNUM[obs_only$used_in_fit == 1])
+  expect_equal(used_times, c(8, 12, 16))
+
+  ## Sum of used_in_fit must match n_points (= 3 forced points)
+  n_pts <- unique(obs_only$n_points[!is.na(obs_only$n_points)])
+  expect_equal(sum(obs_only$used_in_fit, na.rm = TRUE), n_pts)
+  expect_equal(n_pts, 3)
+
+  ## Terminal points (24h, 36h, 48h) must NOT be flagged
+  expect_equal(obs_only$used_in_fit[obs_only$PCTPTNUM == 24], 0)
+  expect_equal(obs_only$used_in_fit[obs_only$PCTPTNUM == 36], 0)
+  expect_equal(obs_only$used_in_fit[obs_only$PCTPTNUM == 48], 0)
+})
+
+test_that("include_lambda_z + exclude_lambda_z: include takes precedence for same subject", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+
+  ## For subject 2: force 8h, 12h, 16h via include_lambda_z AND also attempt
+  ## to exclude 24h via exclude_lambda_z. Per documentation, include_lambda_z
+  ## takes precedence: PKNCA ignores exclude_lambda_z for that subject.
+  ## used_in_fit should follow include_hl (8h, 12h, 16h) regardless of exclude_hl.
+  ## SAMPLEID for 24h of subject 2: "017011033-20140319T000000"
+  nca_data <- suppressWarnings(run_nca(
+    dat[dat$USUBJID == ids[2], ],
+    verbose = FALSE,
+    include_lambda_z = list(
+      SAMPLEID = list(
+        id = c(
+          "017011033-20140318T080000",
+          "017011033-20140318T120000",
+          "017011033-20140318T160000"
+        ),
+        reason = "forced inclusion"
+      )
+    ),
+    exclude_lambda_z = list(
+      SAMPLEID = list(
+        id = "017011033-20140319T000000",
+        reason = "exclude 24h from lambda-z"
+      )
+    )
+  ))
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  fit <- get_nca_individual_fits(nca_obj)
+
+  obs_only <- dplyr::filter(fit, is.na(prediction))
+
+  ## include_lambda_z takes precedence: used_in_fit follows include_hl
+  expect_equal(sort(obs_only$PCTPTNUM[obs_only$used_in_fit == 1]), c(8, 12, 16))
+
+  ## 24h is in exclude_hl but include_hl takes precedence -> used_in_fit = 0
+  expect_equal(obs_only$used_in_fit[obs_only$PCTPTNUM == 24], 0)
+
+  ## Sum matches n_points
+  n_pts <- unique(obs_only$n_points[!is.na(obs_only$n_points)])
+  expect_equal(sum(obs_only$used_in_fit, na.rm = TRUE), n_pts)
+})

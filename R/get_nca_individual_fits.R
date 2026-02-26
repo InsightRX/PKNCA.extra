@@ -62,7 +62,11 @@ get_nca_individual_fits <- function(
       stop("Not all requested columns in `dictionary` are present in input data.")
     }
   }
-  obs_all <- nca_obj$data$conc$data[, unique(c(conc_vars, export, "exclude"))]
+  ## Check for include/exclude half-life columns (set by run_nca() when using
+  ## include_lambda_z / exclude_lambda_z arguments)
+  incl_hl_col <- vars$include_half.life
+  excl_hl_col <- vars$exclude_half.life
+  obs_all <- nca_obj$data$conc$data[, unique(c(conc_vars, export, "exclude", incl_hl_col, excl_hl_col))]
   
   ## Generate predictions for a grid from tfirst to tlast
   predictions <- dplyr::bind_rows(
@@ -94,16 +98,33 @@ get_nca_individual_fits <- function(
     ## Make sure not to flag BLQ points as used_in_fit
     dplyr::mutate(
       blq = dplyr::if_else(.data[[vars$concentration]] == 0, 1, 0),
+      ## Candidate: non-BLQ, not excluded from NCA, not excluded from lambda-z only
       candidate = (is.na(blq) | blq == 0) & is.na(exclude),
-      candidate = dplyr::if_else(is.na(candidate), 0, candidate),
+      candidate = if (!is.null(excl_hl_col)) candidate & !.data[[excl_hl_col]] else candidate,
+      candidate = dplyr::if_else(is.na(candidate), FALSE, candidate),
       candidate_nr = sum(candidate) - cumsum(candidate),
-      used_in_fit = ifelse(
-        .data$candidate_nr < .data$lambda.z.n.points &
-        .data$candidate_nr >= 0,
-        1, 0
-      )
+      ## group_has_include: scalar per group (TRUE when include_lambda_z was
+      ## specified for any point in this group). Recycled to all rows in group.
+      group_has_include = if (!is.null(incl_hl_col)) {
+        any(.data[[incl_hl_col]], na.rm = TRUE)
+      } else {
+        FALSE
+      },
+      ## Base used_in_fit: count the last n_points candidate points from the
+      ## tail (exclude_lambda_z points are excluded via candidate = FALSE above).
+      used_in_fit = as.integer(
+        candidate & candidate_nr < lambda.z.n.points & candidate_nr >= 0
+      ),
+      ## Override: if include_lambda_z was used for this group, use include_hl
+      ## directly instead of the counting logic.
+      used_in_fit = if (!is.null(incl_hl_col)) {
+        dplyr::if_else(group_has_include, as.integer(.data[[incl_hl_col]]), used_in_fit)
+      } else {
+        used_in_fit
+      }
     ) %>%
-    dplyr::select(-candidate, -candidate_nr) %>%
+    dplyr::select(-candidate, -candidate_nr, -group_has_include,
+                  -dplyr::any_of(c(incl_hl_col, excl_hl_col))) %>%
     dplyr::arrange_at(c(group_names, vars$time)) %>%
     dplyr::rename(
       n_points = "lambda.z.n.points",
