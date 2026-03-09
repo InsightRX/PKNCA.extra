@@ -67,6 +67,9 @@ get_nca_individual_fits <- function(
   incl_hl_col <- vars$include_half.life
   excl_hl_col <- vars$exclude_half.life
   obs_all <- nca_obj$data$conc$data[, unique(c(conc_vars, export, "exclude", incl_hl_col, excl_hl_col))]
+  if(!is.null(incl_hl_col) && !is.null(obs_all[[incl_hl_col]]) && sum(is.na(obs_all[[incl_hl_col]])) > 0) {
+    obs_all[[incl_hl_col]][is.na(obs_all[[incl_hl_col]])] <- FALSE
+  }
   
   ## Generate predictions for a grid from tfirst to tlast
   predictions <- dplyr::bind_rows(

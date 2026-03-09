@@ -324,6 +324,32 @@ describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
     expect_equal(nca_excl$tmax, nca_base$tmax)
   })
 
+  test_that("include_lambda_z only affects the specified subject, not others", {
+    nca_base <- run_nca(
+      dat[dat$USUBJID %in% ids[1:3], ],
+      no_dots = FALSE,
+      verbose = FALSE
+    )
+    nca_incl <- suppressWarnings(run_nca(
+      dat[dat$USUBJID %in% ids[1:3], ],
+      no_dots = FALSE,
+      verbose = FALSE,
+      include_lambda_z = list(
+        SAMPLEID = list(
+          id = c("017011028-20130720T120000", "017011028-20130721T000000"),
+          reason = "test"
+        )
+      )
+    ))
+    # Subject 1: half-life and n.points change (only 2 forced points used for lambda-z)
+    expect_false(nca_incl$half.life[1] == nca_base$half.life[1])
+    expect_equal(round(nca_incl$half.life[1], 4), 21.5365)
+    expect_equal(nca_incl$lambda.z.n.points[1], 2)
+    # Subjects 2 and 3: unaffected — inclusion only specified for subject 1's samples
+    expect_equal(nca_incl$half.life[2], nca_base$half.life[2])
+    expect_equal(nca_incl$half.life[3], nca_base$half.life[3])
+  })
+
   test_that("include_lambda_z forces specific points into the lambda-z fit", {
     # For subject 2, force only the 3 latest timepoints into the lambda-z fit
     nca_base <- run_nca(
