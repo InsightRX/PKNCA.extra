@@ -280,7 +280,7 @@ run_nca <- function(
     excl_lz <- parse_exclusions(pk_data, exclude_lambda_z)
     if (any(excl_lz$mask)) {
       lambda_z_excl_col <- "exclude_hl"
-      pk_data[[lambda_z_excl_col]] <- excl_lz$mask
+      pk_data[[lambda_z_excl_col]] <- ifelse(excl_lz$mask, TRUE, NA)
     } else {
       cli::cli_alert_warning("Requested lambda-z datapoints to be excluded not found in data")
     }
@@ -293,7 +293,7 @@ run_nca <- function(
     incl_lz <- parse_exclusions(pk_data, include_lambda_z)
     if (any(incl_lz$mask)) {
       lambda_z_incl_col <- "include_hl"
-      pk_data[[lambda_z_incl_col]] <- incl_lz$mask
+      pk_data[[lambda_z_incl_col]] <- ifelse(incl_lz$mask, TRUE, NA)
     } else {
       cli::cli_alert_warning("Requested lambda-z datapoints to be included not found in data")
     }

@@ -23,7 +23,7 @@ check_nca_grouping <- function(
     cli::cli_abort("Need a `dictionary` with `subject_id` entry.")
   }
   grouped_data <- data |>
-    dplyr::group_by_at(dplyr::all_of(c(dictionary$subject_id, groups)))
+    dplyr::group_by(dplyr::across(dplyr::all_of(c(dictionary$subject_id, groups))))
   if(!is.null(dictionary$conc)) {
     grouped_data <- grouped_data |>
       dplyr::filter(!is.na(!!dictionary$conc)) |>
