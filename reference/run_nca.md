@@ -22,6 +22,7 @@ run_nca(
   exclude_subjects = NULL,
   exclude_lambda_z = NULL,
   include_lambda_z = NULL,
+  units = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
@@ -138,6 +139,19 @@ run_nca(
   the automated curve-stripping procedure and the `exclude_lambda_z`
   argument (if specified) will be ignored for that subject and AUC
   interval.
+
+- units:
+
+  optional units specification, passed to
+  [`PKNCA::PKNCAdata()`](http://humanpred.github.io/pknca/reference/PKNCAdata.md).
+  Either a named list with elements `concu`, `timeu`, `doseu`, and/or
+  `amountu` (plus optional `concu_pref`, `timeu_pref`, `doseu_pref`,
+  `amountu_pref`, and `conversions` fields), which are forwarded to
+  [`PKNCA::pknca_units_table()`](http://humanpred.github.io/pknca/reference/pknca_units_table.md)
+  internally; or a pre-built data frame from
+  [`PKNCA::pknca_units_table()`](http://humanpred.github.io/pknca/reference/pknca_units_table.md).
+  When provided, a `units` attribute containing a per-parameter units
+  table is attached to the returned data frame.
 
 - sequence_from:
 

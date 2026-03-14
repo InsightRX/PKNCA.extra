@@ -59,6 +59,7 @@ rds file if <code>path</code> is specified.</p>
 <span>  exclude_subjects <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  exclude_lambda_z <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  include_lambda_z <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  units <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sequence_from <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  add_auctau <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  post <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>accumulation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>parameters <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auctau"</span>, <span class="st">"cmax"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -174,6 +175,16 @@ Please note that for any subject and interval where
 <code>include_lambda_z</code> are specified, PKNCA will not run the automated
 curve-stripping procedure and the <code>exclude_lambda_z</code> argument (if specified)
 will be ignored for that subject and AUC interval.</p></dd>
+
+
+<dt id="arg-units">units<a class="anchor" aria-label="anchor" href="#arg-units"></a></dt>
+<dd><p>optional units specification, passed to <code><a href="http://humanpred.github.io/pknca/reference/PKNCAdata.html" class="external-link">PKNCA::PKNCAdata()</a></code>.
+Either a named list with elements <code>concu</code>, <code>timeu</code>, <code>doseu</code>, and/or
+<code>amountu</code> (plus optional <code>concu_pref</code>, <code>timeu_pref</code>, <code>doseu_pref</code>,
+<code>amountu_pref</code>, and <code>conversions</code> fields), which are forwarded to
+<code><a href="http://humanpred.github.io/pknca/reference/pknca_units_table.html" class="external-link">PKNCA::pknca_units_table()</a></code> internally; or a pre-built data frame from
+<code><a href="http://humanpred.github.io/pknca/reference/pknca_units_table.html" class="external-link">PKNCA::pknca_units_table()</a></code>. When provided, a <code>units</code> attribute containing
+a per-parameter units table is attached to the returned data frame.</p></dd>
 
 
 <dt id="arg-sequence-from">sequence_from<a class="anchor" aria-label="anchor" href="#arg-sequence-from"></a></dt>
