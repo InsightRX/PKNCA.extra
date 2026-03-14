@@ -19,6 +19,7 @@ run_nca(
   exclude_subjects = NULL,
   exclude_lambda_z = NULL,
   include_lambda_z = NULL,
+  units = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
@@ -106,6 +107,14 @@ Please note that for any subject and interval where
 \code{include_lambda_z} are specified, PKNCA will not run the automated
 curve-stripping procedure and the \code{exclude_lambda_z} argument (if specified)
 will be ignored for that subject and AUC interval.}
+
+\item{units}{optional units specification, passed to \code{PKNCA::PKNCAdata()}.
+Either a named list with elements \code{concu}, \code{timeu}, \code{doseu}, and/or
+\code{amountu} (plus optional \code{concu_pref}, \code{timeu_pref}, \code{doseu_pref},
+\code{amountu_pref}, and \code{conversions} fields), which are forwarded to
+\code{PKNCA::pknca_units_table()} internally; or a pre-built data frame from
+\code{PKNCA::pknca_units_table()}. When provided, a \code{units} attribute containing
+a per-parameter units table is attached to the returned data frame.}
 
 \item{sequence_from}{optional. Argument should specify the column name
 that indicates the treatment e.g. for food-effect cross-over trials. It

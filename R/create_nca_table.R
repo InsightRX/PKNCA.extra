@@ -166,7 +166,31 @@ create_nca_table <- function(
     ) %>%
       dplyr::select("Parameter", "Description", dplyr::everything())
   }
-  
+
+  ## add units (from attr(nca_data, "units"), set by run_nca() when units= is used)
+  units_attr <- attr(nca_data, "units")
+  if (!is.null(units_attr)) {
+    ## prefer standardized units (PPSTRESU) when conversions were specified
+    units_col <- if ("PPSTRESU" %in% names(units_attr)) "PPSTRESU" else "PPORRESU"
+    units_join <- units_attr %>%
+      dplyr::rename(Parameter = "PPTESTCD", Units = !!units_col) %>%
+      dplyr::select("Parameter", "Units")
+    ## apply the same specification remapping used for the description join
+    if (!is.null(mapping) && length(mapping) > 0) {
+      m <- unlist(mapping)
+      units_join$Parameter <- ifelse(
+        units_join$Parameter %in% m,
+        names(m)[match(units_join$Parameter, m)],
+        units_join$Parameter
+      )
+    }
+    nca_table <- nca_table %>%
+      dplyr::left_join(units_join, by = "Parameter")
+    ## position Units right after Description (if present), else after Parameter
+    leading <- intersect(c("Parameter", "Description"), names(nca_table))
+    nca_table <- dplyr::select(nca_table, dplyr::all_of(leading), "Units", dplyr::everything())
+  }
+
   if(style == "pretty") {
     nca_table <- nca_table %>%
       dplyr::mutate(

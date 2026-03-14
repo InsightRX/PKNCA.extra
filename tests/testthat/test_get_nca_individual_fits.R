@@ -2,6 +2,20 @@ test_that("wrong object throws error", {
   expect_error(get_nca_individual_fits(list(foo = "bar")))
 })
 
+test_that("get_nca_individual_fits works when units are specified in run_nca()", {
+  dat <- nca_admiral; ids <- unique(dat$USUBJID)
+  nca_data <- run_nca(
+    dat[dat$USUBJID %in% ids[1:2], ],
+    units = list(concu = "ng/mL", timeu = "h", doseu = "mg"),
+    verbose = FALSE
+  )
+  nca_obj <- attr(nca_data, "PKNCA_object")
+  expect_true("PPORRESU" %in% names(nca_obj$result))
+  fit <- get_nca_individual_fits(nca_obj)
+  expect_s3_class(fit, "data.frame")
+  expect_true(nrow(fit) > 0)
+})
+
 test_that("calculations are correct, for NCA with 2 groupings (subject, treatment)", {
   res <- readRDS(system.file("testdata/pknca/nca_testresult.rds", package = "PKNCA.extra"))
   fit <- get_nca_individual_fits(res, dictionary = list(foo = "SDEID", bar = "SITEID"))

@@ -389,3 +389,28 @@ test_that("csv export works", {
   expect_named(res, c("Parameter", "Description", "Interval", "Statistic", "value"))
 })
 
+
+test_that("create_nca_table includes Units column when units are specified in run_nca()", {
+  dat <- nca_admiral; ids <- unique(dat$USUBJID)
+  nca_data <- run_nca(
+    dat[dat$USUBJID %in% ids[1:10], ],
+    units = list(concu = "ng/mL", timeu = "h", doseu = "mg"),
+    verbose = FALSE
+  )
+
+  tbl <- create_nca_table(nca_data, verbose = FALSE)
+
+  ## Units column should be present and positioned after Description
+  expect_true("Units" %in% names(tbl))
+  expect_equal(which(names(tbl) == "Units"), which(names(tbl) == "Description") + 1L)
+
+  ## At least some parameters should have a non-empty unit string
+  expect_true(any(!is.na(tbl$Units) & tbl$Units != ""))
+})
+
+test_that("create_nca_table has no Units column when units were not specified", {
+  dat <- nca_admiral; ids <- unique(dat$USUBJID)
+  nca_data <- run_nca(dat[dat$USUBJID %in% ids[1:10], ], verbose = FALSE)
+  tbl <- create_nca_table(nca_data, verbose = FALSE)
+  expect_false("Units" %in% names(tbl))
+})

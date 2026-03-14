@@ -103,18 +103,25 @@
 #' dataset. 
 #' E.g. `list("sample_id" = c("12345", "23456"))`. This could similarly be used
 #' to exclude entire subjects, e.g. `list("subject_id = c("103, "105")`
-#' @param exclude_lambda_z list of points to exclude but exclusions are only 
-#' for the calculation of lambda-z and downstream parameters (halflife, CL, V, 
-#' AUCinf etc) but not summarization parameters like Cmax, Tmax, etc. 
+#' @param exclude_lambda_z list of points to exclude but exclusions are only
+#' for the calculation of lambda-z and downstream parameters (halflife, CL, V,
+#' AUCinf etc) but not summarization parameters like Cmax, Tmax, etc.
 #' List with similar structure as `exclude_points`.
-#' @param include_lambda_z list of points to include for the calculation of 
-#' lambda-z and downstream parameters (halflife, CL, V, AUCinf etc) but not 
-#' summarization parameters like Cmax, Tmax, etc. 
+#' @param include_lambda_z list of points to include for the calculation of
+#' lambda-z and downstream parameters (halflife, CL, V, AUCinf etc) but not
+#' summarization parameters like Cmax, Tmax, etc.
 #' List with similar structure as `exclude_points`.
-#' Please note that for any subject and interval where 
-#' `include_lambda_z` are specified, PKNCA will not run the automated 
-#' curve-stripping procedure and the `exclude_lambda_z` argument (if specified) 
+#' Please note that for any subject and interval where
+#' `include_lambda_z` are specified, PKNCA will not run the automated
+#' curve-stripping procedure and the `exclude_lambda_z` argument (if specified)
 #' will be ignored for that subject and AUC interval.
+#' @param units optional units specification, passed to `PKNCA::PKNCAdata()`.
+#' Either a named list with elements `concu`, `timeu`, `doseu`, and/or
+#' `amountu` (plus optional `concu_pref`, `timeu_pref`, `doseu_pref`,
+#' `amountu_pref`, and `conversions` fields), which are forwarded to
+#' `PKNCA::pknca_units_table()` internally; or a pre-built data frame from
+#' `PKNCA::pknca_units_table()`. When provided, a `units` attribute containing
+#' a per-parameter units table is attached to the returned data frame.
 #' @param exclude_subjects optional, vector of subjects to exclude from NCA
 #' @param no_dots if `TRUE` (default) will replace any dots in parameter names
 #' (e.g. `aucinf.obs`) with underscores (`aucinf_obs`).
@@ -146,6 +153,7 @@ run_nca <- function(
   exclude_subjects = NULL,
   exclude_lambda_z = NULL,
   include_lambda_z = NULL,
+  units = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(
@@ -413,24 +421,27 @@ run_nca <- function(
     intervals$impute <- rep("start_conc0", length(intervals$start))
   }
   
+  ## Resolve units: convert named list to pknca_units_table data frame
+  if (!is.null(units) && is.list(units) && !is.data.frame(units)) {
+    units <- do.call(PKNCA::pknca_units_table, units)
+  }
+
   ## Combine to input object for PKNCA
+  pknca_data_args_base <- list(
+    impute = "start_conc0,start_predose",
+    options = list(single.dose.aucs = intervals)
+  )
+  if (!is.null(units)) pknca_data_args_base$units <- units
+
   if(!is.null(dose_obj)) {
-    comb_obj <- PKNCA::PKNCAdata(
-      data.conc = conc_obj,
-      data.dose = dose_obj,
-      impute = "start_conc0,start_predose",
-      options = list(
-        single.dose.aucs = intervals
-      )
+    comb_obj <- do.call(
+      PKNCA::PKNCAdata,
+      c(list(data.conc = conc_obj, data.dose = dose_obj), pknca_data_args_base)
     )
   } else {
-    comb_obj <- PKNCA::PKNCAdata(
-      data.conc = conc_obj,
-      intervals = intervals,
-      impute = "start_conc0,start_predose",
-      options = list(
-        single.dose.aucs = intervals
-      )
+    comb_obj <- do.call(
+      PKNCA::PKNCAdata,
+      c(list(data.conc = conc_obj, intervals = intervals), pknca_data_args_base)
     )
   }
   
@@ -620,7 +631,20 @@ run_nca <- function(
   
   ## Attach PKNCA output
   attr(nca_output, "PKNCA_object") <- res
-  
+
+  ## Attach per-parameter units table when units were specified
+  if (!is.null(units)) {
+    units_out <- res$result %>%
+      dplyr::select("PPTESTCD", "PPORRESU") %>%
+      dplyr::distinct()
+    if ("PPSTRESU" %in% names(res$result)) {
+      units_out <- res$result %>%
+        dplyr::select("PPTESTCD", "PPORRESU", "PPSTRESU") %>%
+        dplyr::distinct()
+    }
+    attr(nca_output, "units") <- units_out
+  }
+
   ## Attach excluded subjects/groups, if any
   if(!is.null(exclude_subjects)) {
     attr(nca_output, "excluded_subjects") <- exclude_subjects

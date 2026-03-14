@@ -395,6 +395,42 @@ describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
     )
   })
 
+  test_that("units argument passes through to PKNCA and attaches units attribute", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+
+    # Form 1: named list - should build units table internally
+    res_list <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      units = list(concu = "ng/mL", timeu = "h", doseu = "mg"),
+      verbose = FALSE
+    )
+    pknca_obj <- attr(res_list, "PKNCA_object")
+    expect_true("PPORRESU" %in% names(pknca_obj$result))
+    units_attr <- attr(res_list, "units")
+    expect_true(is.data.frame(units_attr))
+    expect_true(all(c("PPTESTCD", "PPORRESU") %in% names(units_attr)))
+    expect_true(nrow(units_attr) > 0)
+    expect_true(any(units_attr$PPORRESU != ""))
+
+    # Form 2: pre-built data frame - should pass through unchanged
+    units_tbl <- PKNCA::pknca_units_table(concu = "ng/mL", timeu = "h", doseu = "mg")
+    res_tbl <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      units = units_tbl,
+      verbose = FALSE
+    )
+    expect_true("PPORRESU" %in% names(attr(res_tbl, "PKNCA_object")$result))
+    expect_true(is.data.frame(attr(res_tbl, "units")))
+
+    # NULL units (default) - no units attribute attached
+    res_null <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      verbose = FALSE
+    )
+    expect_null(attr(res_null, "units"))
+    expect_false("PPORRESU" %in% names(attr(res_null, "PKNCA_object")$result))
+  })
+
   test_that("include_lambda_z gives warning when specified IDs not found in data", {
     expect_message(
       run_nca(
