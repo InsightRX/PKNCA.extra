@@ -34,6 +34,7 @@ get_nca_individual_fits <- function(
     nca_obj$result$PPTESTCD <- underscores_to_dots(nca_obj$result$PPTESTCD)
   }
   fit_data_wide <- nca_obj$result %>%
+    dplyr::select(-dplyr::any_of(c("PPORRESU", "PPSTRESU"))) %>%
     tidyr::pivot_wider(names_from = "PPTESTCD", values_from = "PPORRES")
   if(!all(reqd_params %in% names(fit_data_wide))) {
     stop("Not all fit parameters available, cannot create individual fit data.")    
