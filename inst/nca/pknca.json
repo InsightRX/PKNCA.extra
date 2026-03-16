@@ -15,7 +15,8 @@
       "min.span.ratio": 2,
       "max.aucinf.pext": 20,
       "min.hl.r.squared": 0.9,
-      "tau.choices": "<NA>"
+      "tau.choices": "<NA>",
+      "min.hl.time": null
     },
     "mapping": {
       "names": {
@@ -34,7 +35,8 @@
         "min.span.ratio": "minSpanRatio",
         "max.aucinf.pext": "maxAUCExtrapolation",
         "min.hl.r.squared": "minAcceptableR2",
-        "tau.choices": null
+        "tau.choices": null,
+        "min.hl.time": "minHalfLifeTime"
       },
       "options": {
         "auc.method": {
