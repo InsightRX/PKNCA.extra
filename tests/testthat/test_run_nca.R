@@ -408,9 +408,9 @@ describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
     expect_true("PPORRESU" %in% names(pknca_obj$result))
     units_attr <- attr(res_list, "units")
     expect_true(is.data.frame(units_attr))
-    expect_true(all(c("PPTESTCD", "PPORRESU") %in% names(units_attr)))
+    expect_true(all(c("name", "unit") %in% names(units_attr)))
     expect_true(nrow(units_attr) > 0)
-    expect_true(any(units_attr$PPORRESU != ""))
+    expect_true(any(units_attr$unit != ""))
 
     # Form 2: pre-built data frame - should pass through unchanged
     units_tbl <- PKNCA::pknca_units_table(concu = "ng/mL", timeu = "h", doseu = "mg")

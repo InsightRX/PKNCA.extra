@@ -42,7 +42,23 @@ create_nca_table <- function(
   ## arguments
   format <- match.arg(format)
   style <- match.arg(style)
+  units_attr <- attr(nca_data, "units")
   
+  ## Re-pivot data, if needed
+  if(all(c("name", "value") %in% names(nca_data))) {
+    tmp <- attr(nca_data, "PKNCA_object")
+    nca_data <- nca_data |>
+      dplyr::select(-unit) |>
+      tidyr::pivot_wider(names_from = "name", values_from = "value")
+    attr(nca_data, "PKNCA_object") <- tmp
+  } else {
+    # column names may have units, strip them out
+    nam <- names(nca_data)
+    nam_new <- unlist(lapply(stringr::str_split(nam, " "), function(x) x[1]))
+    nca_data <- nca_data |>
+      stats::setNames(nam_new)
+  }
+
   ## Parameters
   if(is.null(parameters)) {
     parameters <- get_parameter_names_from_nca_data(nca_data)
@@ -136,6 +152,8 @@ create_nca_table <- function(
       pct_95 = stats::quantile(.data$value, .95, na.rm = TRUE),
       min = suppressWarnings(min(.data$value, na.rm = TRUE)),
       max = suppressWarnings(max(.data$value, na.rm = TRUE)),
+      n = sum(!is.na(.data$value)),
+      n_missing = sum(is.na(.data$value)),
       nca_start = .data$nca_start[1],
       nca_end = .data$nca_end[1]
     ) %>%
@@ -143,18 +161,22 @@ create_nca_table <- function(
     dplyr::arrange_at(c("name", "nca_start", "nca_end")) %>%
     dplyr::rename(Parameter = "name") %>%
     dplyr::select(-dplyr::all_of(c("nca_start", "nca_end")))
-  
+
   ## grouping and formatting output
   if(format == "long") {
-    nca_table <- nca_table %>%
-      tidyr::pivot_longer(cols = c("geom_mean":"max"))
     if(!is.null(groups)) {
+      ## For grouped long format: pivot stats only; n/n_missing differ per group
+      ## so they can't be single columns after pivot_wider — drop them here.
+      ## Per-group counts are available in wide format.
       nca_table <- nca_table %>%
-        tidyr::pivot_wider(names_from = tidyselect::all_of(groups))
+        dplyr::select(-"n", -"n_missing") %>%
+        tidyr::pivot_longer(cols = c("geom_mean":"max"), names_to = "Statistic") %>%
+        tidyr::pivot_wider(names_from = tidyselect::all_of(groups), values_from = "value")
+    } else {
+      nca_table <- nca_table %>%
+        tidyr::pivot_longer(cols = c("geom_mean":"max"), names_to = "Statistic") %>%
+        dplyr::relocate("n", "n_missing", .after = dplyr::last_col())
     }
-    nca_table <- nca_table %>%
-      dplyr::rename(Statistic = "name") %>%
-      dplyr::group_by(.data$Parameter)
   }
   
   ## add description of parameters
@@ -168,13 +190,10 @@ create_nca_table <- function(
   }
 
   ## add units (from attr(nca_data, "units"), set by run_nca() when units= is used)
-  units_attr <- attr(nca_data, "units")
   if (!is.null(units_attr)) {
-    ## prefer standardized units (PPSTRESU) when conversions were specified
-    units_col <- if ("PPSTRESU" %in% names(units_attr)) "PPSTRESU" else "PPORRESU"
     units_join <- units_attr %>%
-      dplyr::rename(Parameter = "PPTESTCD", Units = !!units_col) %>%
-      dplyr::select("Parameter", "Units")
+      dplyr::rename(Parameter = "name", Unit = "unit") %>%
+      dplyr::select("Parameter", "Unit")
     ## apply the same specification remapping used for the description join
     if (!is.null(mapping) && length(mapping) > 0) {
       m <- unlist(mapping)
@@ -188,7 +207,7 @@ create_nca_table <- function(
       dplyr::left_join(units_join, by = "Parameter")
     ## position Units right after Description (if present), else after Parameter
     leading <- intersect(c("Parameter", "Description"), names(nca_table))
-    nca_table <- dplyr::select(nca_table, dplyr::all_of(leading), "Units", dplyr::everything())
+    nca_table <- dplyr::select(nca_table, dplyr::all_of(leading), "Unit", dplyr::everything())
   }
 
   if(style == "pretty") {

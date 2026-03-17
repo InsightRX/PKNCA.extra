@@ -24,14 +24,13 @@ test_that("create_nca_table gives expected result", {
   attr(dat, "PKNCA_object") <- list(result = list(
     PPTESTCD = c("CMAX", "TMAX", "AUCALL", "LAMZHL", "AUCLST", "CLST", "LAMZ", "LAMZNPT"))
   )
-  # attr(dat, "parameters") <- c("CMAX", "TMAX", "AUCALL", "LAMZHL", "AUCLST", "CLST", "LAMZ", "LAMZNPT")
   res <- create_nca_table(
-    dat, 
+    dat,
     specification = "cdisc",
     format = "long"
   )
   expect_true(is.data.frame(res))
-  expect_named(res, c("Parameter", "Description", "Interval", "Statistic", "value"))
+  expect_named(res, c("Parameter", "Description", "Interval", "Statistic", "value", "n", "n_missing"))
   expect_equal(nrow(res), 80)
   expect_true(all(c("AUC (extrapolated to zero from last obs)", "AUC to last obs") %in% res$Description))
   expect_equal(
@@ -47,20 +46,20 @@ test_that("create_nca_table gives expected result", {
   )
   expect_named(
     res2,
-    c("Parameter", "Description", "Interval", "geom_mean", "geom_cv_pct", 
-      "arithm_mean", "arithm_sd", "arithm_cv_pct", "median", "pct_5", 
-      "pct_95", "min", "max")
+    c("Parameter", "Description", "Interval", "geom_mean", "geom_cv_pct",
+      "arithm_mean", "arithm_sd", "arithm_cv_pct", "median", "pct_5",
+      "pct_95", "min", "max", "n", "n_missing")
   )
   expect_equal(
     head(data.frame(res2), 1),
-    structure(list(Parameter = "AUCALL", Description = "AUC (extrapolated to zero from last obs)", 
-                   Interval = "0 - 24", geom_mean = 50.46, geom_cv_pct = 47.26, 
-                   arithm_mean = 56.2, arithm_sd = 29.76, arithm_cv_pct = 52.96, 
-                   median = 44.65, pct_5 = c(`5%` = 29.6), pct_95 = c(`95%` = 99.13), 
-                   min = 26.6, max = 106.9), row.names = 1L, class = "data.frame")
+    structure(list(Parameter = "AUCALL", Description = "AUC (extrapolated to zero from last obs)",
+                   Interval = "0 - 24", geom_mean = 50.46, geom_cv_pct = 47.26,
+                   arithm_mean = 56.2, arithm_sd = 29.76, arithm_cv_pct = 52.96,
+                   median = 44.65, pct_5 = c(`5%` = 29.6), pct_95 = c(`95%` = 99.13),
+                   min = 26.6, max = 106.9, n = 6L, n_missing = 0L), row.names = 1L, class = "data.frame")
   )
 })
-  
+
 test_that("Specification file is respected", {
   dat <- data.frame(
     subject_id = c("A", "B", "C", "D", "E", "F"),
@@ -84,11 +83,11 @@ test_that("Specification file is respected", {
   )
   res <- create_nca_table(
     dat,
-    parameters = c("cmax", "tmax", "auclast"),  
+    parameters = c("cmax", "tmax", "auclast"),
     format = "long",
     description = TRUE
   )
-  expect_named(res, c("Parameter", "Description", "Interval", "Statistic", "value"))
+  expect_named(res, c("Parameter", "Description", "Interval", "Statistic", "value", "n", "n_missing"))
   expect_equal(data.frame(res),
                structure(
                  list(
@@ -251,7 +250,9 @@ test_that("Specification file is respected", {
                      `95%` = 6.85,
                      1.4,
                      7.8
-                   )
+                   ),
+                   n = rep(6L, 30),
+                   n_missing = rep(0L, 30)
                  ),
                  class = "data.frame",
                  row.names = c(NA, -30L)
@@ -283,23 +284,23 @@ test_that("Description is excluded if not requested", {
     LAMZNPT = c(5.2, 8.6, 6.7, 9.1, 3.1, 3.1)
   )
   res <- create_nca_table(
-    dat, 
+    dat,
     parameters = c("CMAX", "TMAX", "AUCALL", "LAMZHL", "AUCLST", "CLST", "LAMZ", "LAMZNPT"),
     specification = "cdisc",
     description = FALSE,
     format = "long"
   )
-  expect_named(res, c("Parameter", "Interval", "Statistic", "value"))
+  expect_named(res, c("Parameter", "Interval", "Statistic", "value", "n", "n_missing"))
   res_wide <- create_nca_table(
-    dat, 
+    dat,
     parameters = c("CMAX", "TMAX", "AUCALL", "LAMZHL", "AUCLST", "CLST", "LAMZ", "LAMZNPT"),
     specification = "cdisc",
     description = FALSE,
     format = "wide"
   )
-  expect_named(res_wide, c("Parameter", "Interval", "geom_mean", "geom_cv_pct", "arithm_mean", 
-                           "arithm_sd", "arithm_cv_pct", "median", "pct_5", "pct_95", "min", 
-                           "max"))
+  expect_named(res_wide, c("Parameter", "Interval", "geom_mean", "geom_cv_pct", "arithm_mean",
+                           "arithm_sd", "arithm_cv_pct", "median", "pct_5", "pct_95", "min",
+                           "max", "n", "n_missing"))
 })
 
 test_that("Grouping works", {
@@ -326,12 +327,14 @@ test_that("Grouping works", {
     LAMZNPT = c(5.2, 8.6, 6.7, 9.1, 3.1, 3.1)
   )
   res <- create_nca_table(
-    dat, 
+    dat,
     parameters = c("CMAX", "TMAX", "AUCALL", "LAMZHL", "AUCLST", "CLST", "LAMZ", "LAMZNPT"),
-    description = FALSE, 
+    description = FALSE,
     group = "ACTARM",
     format = "long"
   )
+  ## n/n_missing are dropped for grouped long format (they differ per group and
+  ## conflict with pivot_wider); use format="wide" to get per-group counts
   expect_named(
     res,
     c("Parameter", "Interval", "Statistic", "Drug X High Dose", "Drug X Low Dose")
@@ -386,7 +389,75 @@ test_that("csv export works", {
   )
   res <- read.csv(tmpfile)
   expect_equal(nrow(res), 80)
-  expect_named(res, c("Parameter", "Description", "Interval", "Statistic", "value"))
+  expect_named(res, c("Parameter", "Description", "Interval", "Statistic", "value", "n", "n_missing"))
+})
+
+test_that("n and n_missing are correct with no missing values", {
+  dat <- data.frame(
+    USUBJID = c("A", "B", "C", "D", "E", "F"),
+    nca_start = 0,
+    nca_end = 24,
+    nca_interval = rep("0 - 24", 6),
+    CMAX = c(4.3, 4.9, 6.8, 2.2, 4.2, 3.9),
+    AUCALL = c(75.8, 41.4, 106.9, 26.6, 47.9, 38.6)
+  )
+  res_wide <- create_nca_table(dat, parameters = c("CMAX", "AUCALL"),
+                               description = FALSE, format = "wide")
+  expect_equal(res_wide$n, c(6L, 6L))
+  expect_equal(res_wide$n_missing, c(0L, 0L))
+
+  res_long <- create_nca_table(dat, parameters = c("CMAX", "AUCALL"),
+                               description = FALSE, format = "long")
+  ## n and n_missing are constant across statistics for the same parameter
+  expect_true(all(res_long$n == 6L))
+  expect_true(all(res_long$n_missing == 0L))
+})
+
+test_that("n and n_missing correctly count NA values", {
+  dat <- data.frame(
+    USUBJID = c("A", "B", "C", "D", "E", "F"),
+    nca_start = 0,
+    nca_end = 24,
+    nca_interval = rep("0 - 24", 6),
+    CMAX = c(4.3, NA, 6.8, 2.2, NA, 3.9),   # 2 missing
+    AUCALL = c(75.8, 41.4, 106.9, 26.6, 47.9, 38.6)  # 0 missing
+  )
+  res_wide <- create_nca_table(dat, parameters = c("CMAX", "AUCALL"),
+                               description = FALSE, format = "wide")
+  cmax_row <- res_wide[res_wide$Parameter == "CMAX", ]
+  aucall_row <- res_wide[res_wide$Parameter == "AUCALL", ]
+  expect_equal(cmax_row$n, 4L)
+  expect_equal(cmax_row$n_missing, 2L)
+  expect_equal(aucall_row$n, 6L)
+  expect_equal(aucall_row$n_missing, 0L)
+
+  res_long <- create_nca_table(dat, parameters = c("CMAX", "AUCALL"),
+                               description = FALSE, format = "long")
+  cmax_rows <- res_long[res_long$Parameter == "CMAX", ]
+  aucall_rows <- res_long[res_long$Parameter == "AUCALL", ]
+  expect_true(all(cmax_rows$n == 4L))
+  expect_true(all(cmax_rows$n_missing == 2L))
+  expect_true(all(aucall_rows$n == 6L))
+  expect_true(all(aucall_rows$n_missing == 0L))
+})
+
+test_that("n and n_missing are correct when grouping is used", {
+  dat <- data.frame(
+    USUBJID = c("A", "B", "C", "D", "E", "F"),
+    GROUP = c("High", "High", "High", "Low", "Low", "Low"),
+    nca_start = 0,
+    nca_end = 24,
+    nca_interval = rep("0 - 24", 6),
+    CMAX = c(4.3, NA, 6.8, 2.2, 4.2, 3.9)  # High: 2 non-NA, 1 NA; Low: 3 non-NA, 0 NA
+  )
+  res <- create_nca_table(dat, parameters = "CMAX", description = FALSE,
+                          groups = "GROUP", format = "wide")
+  high_row <- res[res$GROUP == "High", ]
+  low_row  <- res[res$GROUP == "Low", ]
+  expect_equal(high_row$n, 2L)
+  expect_equal(high_row$n_missing, 1L)
+  expect_equal(low_row$n, 3L)
+  expect_equal(low_row$n_missing, 0L)
 })
 
 
@@ -400,12 +471,12 @@ test_that("create_nca_table includes Units column when units are specified in ru
 
   tbl <- create_nca_table(nca_data, verbose = FALSE)
 
-  ## Units column should be present and positioned after Description
-  expect_true("Units" %in% names(tbl))
-  expect_equal(which(names(tbl) == "Units"), which(names(tbl) == "Description") + 1L)
+  ## Unit column should be present and positioned after Description
+  expect_true("Unit" %in% names(tbl))
+  expect_equal(which(names(tbl) == "Unit"), which(names(tbl) == "Description") + 1L)
 
   ## At least some parameters should have a non-empty unit string
-  expect_true(any(!is.na(tbl$Units) & tbl$Units != ""))
+  expect_true(any(!is.na(tbl$Unit) & tbl$Unit != ""))
 })
 
 test_that("create_nca_table has no Units column when units were not specified", {
