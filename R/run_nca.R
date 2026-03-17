@@ -79,10 +79,17 @@
 #' `dose`. Optional entries are: `visit`.
 #' If required entries are specified only partially, then default values 
 #' (i.e. CDISC) nomenclature will be imputed for missing identifiers.
-#' @param settings list of settings for NCA. Provided setting names can either 
-#' be settings recognized directly by `pknca`, or settings that are included in 
-#' the map provided by `nca_settings_map()` (which are then mapped to `pknca` 
-#' setting names).
+#' @param settings list of settings for NCA. Provided setting names can either
+#' be settings recognized directly by `pknca`, or settings that are included in
+#' the map provided by `nca_settings_map()` (which are then mapped to `pknca`
+#' setting names). In addition to standard PKNCA settings, the following
+#' settings are handled internally and not passed to PKNCA:
+#'
+#' - `min.hl.time` (or `minHalfLifeTime`): minimum time required for a data
+#'   point to be eligible for the lambda-z (terminal slope) calculation. Any
+#'   data points with time < this value are excluded from the lambda-z fit
+#'   (but remain in the analysis for other parameters such as Cmax and AUClast).
+#'   This is implemented by setting `exclude_lambda_z` flags internally.
 #' @param sequence_from optional. Argument should specify the column name 
 #' that indicates the treatment e.g. for food-effect cross-over trials. It
 #' will then add sequence group and sequence description columns to the 
@@ -176,7 +183,17 @@ run_nca <- function(
   ## Read default NCA specs (parameters, and parameter mapping)
   spec <- read_spec_from_file(specification)
 
-  ## If user provided any settings (PKNCA options), override any default 
+  ## Extract settings handled internally before passing to PKNCA mapping.
+  ## min.hl.time (or its alias minHalfLifeTime) is converted to exclude_lambda_z
+  ## flags internally and must not be forwarded to PKNCA.options().
+  min_hl_time <- NULL
+  if (!is.null(settings)) {
+    min_hl_time <- if (!is.null(settings[["min.hl.time"]])) settings[["min.hl.time"]] else settings[["minHalfLifeTime"]]
+    settings[["min.hl.time"]] <- NULL
+    settings[["minHalfLifeTime"]] <- NULL
+  }
+
+  ## If user provided any settings (PKNCA options), override any default
   ## options with the user-provided ones
   pknca_options <- settings
   if(is.null(pknca_options)) {
@@ -291,6 +308,20 @@ run_nca <- function(
       pk_data[[lambda_z_excl_col]] <- excl_lz$mask
     } else {
       cli::cli_alert_warning("Requested lambda-z datapoints to be excluded not found in data")
+    }
+  }
+
+  ## Handle min.hl.time: exclude all time points earlier than threshold from lambda-z
+  if (!is.null(min_hl_time)) {
+    if (verbose) cli::cli_alert_info("Excluding time points earlier than {min_hl_time} from lambda-z calculation")
+    time_mask <- pk_data[[dictionary$time]] < min_hl_time
+    if (any(time_mask)) {
+      lambda_z_excl_col <- "exclude_hl"
+      if (!is.null(pk_data[[lambda_z_excl_col]])) {
+        pk_data[[lambda_z_excl_col]] <- pk_data[[lambda_z_excl_col]] | time_mask
+      } else {
+        pk_data[[lambda_z_excl_col]] <- time_mask
+      }
     }
   }
 

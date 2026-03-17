@@ -38,13 +38,16 @@ map_nca_settings <- function(
   new_settings <- md$defaults
   for(m in names(md$mapping$names)) {
     if(inherits(md$mapping$names[[m]], "list")) {
-      new_settings[[m]] <- list()
+      ## Initialise from defaults so partial settings don't produce an empty
+      ## nested list (e.g. conc.blq = list()) that PKNCA would reject.
+      new_settings[[m]] <- if (!is.null(md$defaults[[m]])) md$defaults[[m]] else list()
       for(k in names(md$mapping$names[[m]])) {
-        if(!is.null(settings[[m]])) {
-          new_settings[[m]][[k]] <- remap_core(settings[[m]], k, md$mapping$names[[m]][[k]], md$mapping$options[[m]][[k]])  
+        val <- if(!is.null(settings[[m]])) {
+          remap_core(settings[[m]], k, md$mapping$names[[m]][[k]], md$mapping$options[[m]][[k]])
         } else {
-          new_settings[[m]][[k]] <- remap_core(settings, k, md$mapping$names[[m]][[k]], md$mapping$options[[m]][[k]])  
+          remap_core(settings, k, md$mapping$names[[m]][[k]], md$mapping$options[[m]][[k]])
         }
+        if (!is.null(val)) new_settings[[m]][[k]] <- val
       }
     } else {
       new_settings[[m]] <- remap_core(settings, m, md$mapping$names[[m]], md$mapping$options[[m]])
@@ -71,7 +74,7 @@ remap_core <- function(settings, m, mapped_name,  mapped_option) {
     out <- NULL
   }
   ## Remap option values (if relevant)
-  if(!is.null(mapped_option)) {
+  if(!is.null(mapped_option) && !is.null(out)) {
     if(out %in% names(mapped_option)) {
       out <- mapped_option[[out]]
     }

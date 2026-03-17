@@ -448,4 +448,83 @@ describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
     )
   })
 
+  describe("min.hl.time setting", {
+
+    test_that("min.hl.time has no effect when all terminal points are above the threshold", {
+      dat <- nca_admiral; ids <- unique(dat$USUBJID)
+      # Subject 1 default terminal fit uses 24h, 36h, 48h; threshold of 12h leaves those unchanged
+      nca_base <- run_nca(dat[dat$USUBJID == ids[1], ], no_dots = FALSE, verbose = FALSE)
+      nca_min <- run_nca(
+        dat[dat$USUBJID == ids[1], ],
+        no_dots = FALSE, verbose = FALSE,
+        settings = list("min.hl.time" = 12)
+      )
+      expect_equal(nca_min$half.life, nca_base$half.life)
+      expect_equal(nca_min$lambda.z.n.points, nca_base$lambda.z.n.points)
+    })
+
+    test_that("min.hl.time excludes early time points from lambda-z fit", {
+      dat <- nca_admiral; ids <- unique(dat$USUBJID)
+      # Subject 1 default 3-point fit uses 24h, 36h, 48h.
+      # Setting min.hl.time = 30 excludes 24h, leaving only 36h + 48h (< min.hl.points=3) -> NA
+      nca_min <- suppressWarnings(run_nca(
+        dat[dat$USUBJID == ids[1], ],
+        no_dots = FALSE, verbose = FALSE,
+        settings = list("min.hl.time" = 30)
+      ))
+      expect_true(is.na(nca_min$half.life))
+      expect_true(is.na(nca_min$lambda.z.n.points))
+    })
+
+    test_that("min.hl.time does not affect Cmax or AUClast", {
+      dat <- nca_admiral; ids <- unique(dat$USUBJID)
+      nca_base <- run_nca(dat[dat$USUBJID == ids[1], ], no_dots = FALSE, verbose = FALSE)
+      nca_min <- suppressWarnings(run_nca(
+        dat[dat$USUBJID == ids[1], ],
+        no_dots = FALSE, verbose = FALSE,
+        settings = list("min.hl.time" = 30)
+      ))
+      expect_equal(nca_min$cmax, nca_base$cmax)
+      expect_equal(nca_min$auclast, nca_base$auclast)
+      expect_equal(nca_min$tmax, nca_base$tmax)
+    })
+
+    test_that("min.hl.time can be combined with exclude_lambda_z", {
+      dat <- nca_admiral; ids <- unique(dat$USUBJID)
+      # For subject 1: min.hl.time = 5 alone has no effect (terminal points are 24h+)
+      # Combining with exclude_lambda_z for the 36h point should give the same result
+      # as exclude_lambda_z alone (both masks are OR'd together)
+      nca_excl_only <- run_nca(
+        dat[dat$USUBJID == ids[1], ],
+        no_dots = FALSE, verbose = FALSE,
+        exclude_lambda_z = list(SAMPLEID = list(id = "017011028-20130720T120000", reason = "test"))
+      )
+      nca_combined <- run_nca(
+        dat[dat$USUBJID == ids[1], ],
+        no_dots = FALSE, verbose = FALSE,
+        settings = list("min.hl.time" = 5),
+        exclude_lambda_z = list(SAMPLEID = list(id = "017011028-20130720T120000", reason = "test"))
+      )
+      # Both should yield the same result: min.hl.time=5 adds no additional exclusions
+      expect_equal(nca_combined$half.life, nca_excl_only$half.life)
+      expect_equal(nca_combined$lambda.z.n.points, nca_excl_only$lambda.z.n.points)
+    })
+
+    test_that("minHalfLifeTime (alias) works the same as min.hl.time", {
+      dat <- nca_admiral; ids <- unique(dat$USUBJID)
+      nca_name <- suppressWarnings(run_nca(
+        dat[dat$USUBJID == ids[1], ],
+        no_dots = FALSE, verbose = FALSE,
+        settings = list("min.hl.time" = 30)
+      ))
+      nca_alias <- suppressWarnings(run_nca(
+        dat[dat$USUBJID == ids[1], ],
+        no_dots = FALSE, verbose = FALSE,
+        settings = list("minHalfLifeTime" = 30)
+      ))
+      expect_equal(nca_alias$half.life, nca_name$half.life)
+    })
+
+  })
+
 })
