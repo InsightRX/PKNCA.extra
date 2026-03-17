@@ -101,7 +101,8 @@ test_that("nca_post_accumulation handles custom parameters correctly", {
 })
 
 test_that("nca_post_accumulation handles errors correctly", {
-  
+  dictionary <- list(subject_id = "USUBJID")
+
   # Missing parameter column
   data_missing_param <- data.frame(
     USUBJID = rep("001", 2),
@@ -109,7 +110,7 @@ test_that("nca_post_accumulation handles errors correctly", {
     nca_end = c(24, 48)
     # Missing auclast and cmax
   )
-  
+
   expect_warning(
     nca_post_accumulation(data_missing_param, dictionary)
   )
