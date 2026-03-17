@@ -132,6 +132,7 @@
 #' @param exclude_subjects optional, vector of subjects to exclude from NCA
 #' @param no_dots if `TRUE` (default) will replace any dots in parameter names
 #' (e.g. `aucinf.obs`) with underscores (`aucinf_obs`).
+#' @param format output as table in wide or long format.
 #' @param verbose verbose output?
 #' @param ... parameters passed to `PKNCA::pk.nca()`` function.
 #' 
@@ -171,6 +172,7 @@ run_nca <- function(
       )
     )
   ),
+  format = c("wide", "long"),
   no_dots = TRUE,
   path = NULL,
   check_grouping = FALSE,
@@ -178,6 +180,9 @@ run_nca <- function(
   ...
 ) {
 
+  ## arguments
+  format <- match.arg(format)
+  
   time_start <- Sys.time() 
   
   ## Read default NCA specs (parameters, and parameter mapping)
@@ -490,7 +495,15 @@ run_nca <- function(
   
   ## Combine results and parse into output structure
   if(verbose) cli::cli_alert_info("Parsing output from PKNCA")
-  res_inf <- res$result %>%
+  tmp <- res$result
+  units_data <- NULL
+  ## prefer standardized units (PPSTRESU) when conversions were specified
+  units_col <- ifelse("PPSTRESU" %in% names(tmp), "PPSTRESU", "PPORRESU")
+  if(units_col %in% names(res$result)) { # remove units for wide-pivot, because they will introduce NA rows
+    units_data <- get_nca_units(res, units_col)
+    tmp[[units_col]] <- NULL
+  }
+  res_inf <- tmp %>%
     dplyr::select(-"exclude") %>%
     tidyr::pivot_wider(
       names_from = "PPTESTCD", 
@@ -655,6 +668,26 @@ run_nca <- function(
   nca_output <- nca_output %>%
     dplyr::arrange_at(c(dictionary$subject_id, cols_groups, "nca_start"))
   
+  ## Long format?
+  if(format == "long") {
+    cols_static <- c(names(nca_output)[1:match("nca_end", names(nca_output))], "nca_interval")
+    cols_pivot <- names(nca_output)[! names(nca_output) %in% cols_static]
+    nca_output <- nca_output |>
+      tidyr::pivot_longer(cols = cols_pivot)
+    if(!is.null(units_data)) {
+      nca_output <- nca_output |>
+        dplyr::left_join(units_data)
+    }
+  } else if (!is.null(units_data)) {
+    tmp <- units_data |>
+      dplyr::mutate(full_name = paste0(.data$name, " (", .data$unit, ")")) |>
+      dplyr::filter(.data$name %in% names(nca_output))
+    rename_obj <- as.list(tmp$name) |>
+        stats::setNames(tmp$full_name)
+    nca_output <- nca_output |>
+        dplyr::rename(!!!rename_obj)
+  }
+  
   ## save PKNCA object to file?
   if(!is.null(path)) {
     saveRDS(res, path)
@@ -664,16 +697,8 @@ run_nca <- function(
   attr(nca_output, "PKNCA_object") <- res
 
   ## Attach per-parameter units table when units were specified
-  if (!is.null(units)) {
-    units_out <- res$result %>%
-      dplyr::select("PPTESTCD", "PPORRESU") %>%
-      dplyr::distinct()
-    if ("PPSTRESU" %in% names(res$result)) {
-      units_out <- res$result %>%
-        dplyr::select("PPTESTCD", "PPORRESU", "PPSTRESU") %>%
-        dplyr::distinct()
-    }
-    attr(nca_output, "units") <- units_out
+  if (!is.null(units_data)) {
+    attr(nca_output, "units") <- units_data
   }
 
   ## Attach excluded subjects/groups, if any
@@ -741,4 +766,19 @@ set_pknca_interval_parameters <- function(time, parameters) {
     parameters
   )
   PKNCA::PKNCA.options(single.dose.aucs = intv_table)
+}
+
+#' Get a table of units from a raw PKNCA object
+#' 
+#' @param data PKNCA output object
+#' 
+#' @returns data.frame with `name` and `unit` columns
+#' 
+get_nca_units <- function(data, units_col = "PPORRESU") {
+  units_data <- data$result %>%
+    dplyr::select(name = .data$PPTESTCD, unit = .data[[units_col]]) %>%
+    dplyr::distinct()
+  ## TODO: infer units for auctau and auc_partial
+  ## TODO: parse vz units properly ("mg/(mg/L)" should be "L")
+  units_data
 }

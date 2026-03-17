@@ -110,7 +110,7 @@ test_that("nca_post_accumulation handles errors correctly", {
     # Missing auclast and cmax
   )
   
-  expect_error(
+  expect_warning(
     nca_post_accumulation(data_missing_param, dictionary)
   )
   

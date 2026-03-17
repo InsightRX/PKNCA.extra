@@ -51,7 +51,7 @@ nca_post_accumulation <- function(
   # Validate inputs
   parameters <- options$parameters[options$parameters %in% names(data)]
   if(length(parameters) == 0) {
-    cli::cli_alert_warning(
+    cli::cli_warn(
       paste0(
         "None of the requested parameters were found, not calculating accumulation rates."
       )
