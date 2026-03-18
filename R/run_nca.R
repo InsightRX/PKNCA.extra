@@ -145,14 +145,89 @@
 #' accepted by `PKNCA::pknca_units_table(conversions = ...)`. This is an
 #' alternative to `concu_pref`/`doseu_pref` that does not require the `units`
 #' R package. Only used when `units` is a named list (not a pre-built
-#' data.frame).
+#' data.frame). See the *Unit strings and conversions* section for format
+#' details.
 #' @param exclude_subjects optional, vector of subjects to exclude from NCA
 #' @param no_dots if `TRUE` (default) will replace any dots in parameter names
 #' (e.g. `aucinf.obs`) with underscores (`aucinf_obs`).
 #' @param format output as table in wide or long format.
 #' @param verbose verbose output?
 #' @param ... parameters passed to `PKNCA::pk.nca()`` function.
-#' 
+#'
+#' @section Unit strings and conversions:
+#'
+#' **Unit string format**
+#'
+#' The `concu`, `timeu`, `doseu`, and `amountu` fields in the `units` list are
+#' free-form label strings. PKNCA passes them through as-is to build composite
+#' unit labels for each NCA parameter (e.g. AUC = `timeu*concu`, V =
+#' `doseu/(concu)`, CL = `doseu/(timeu*concu)`). There is no built-in
+#' validation or normalisation, so:
+#'
+#' - **Use consistent, conventional abbreviations** throughout: `"mg"` not
+#'   `"MG"` or `"milligram"`, `"h"` not `"hr"` or `"hours"`, `"ng/mL"` not
+#'   `"ng*mL-1"`.
+#' - **Case is significant**: `"mg"` and `"MG"` produce different PPORRESU
+#'   strings, which matter when matching entries in `conversions`.
+#' - **Concentration units** should be written as `"<mass>/<volume>"`, e.g.
+#'   `"ng/mL"`, `"ug/mL"`, `"mg/L"`, `"nmol/L"`.
+#' - **Dose units** may include a body-weight denominator, e.g. `"mg/kg"`.
+#'
+#' **Using `conversions` (no `units` package required)**
+#'
+#' The `conversions` data.frame maps a raw PPORRESU string to a preferred
+#' display unit with a numeric conversion factor:
+#'
+#' | Column | Description |
+#' |---|---|
+#' | `PPORRESU` | Exact PPORRESU string as produced by PKNCA (case-sensitive) |
+#' | `PPSTRESU` | Preferred output unit label |
+#' | `conversion_factor` | Multiply the raw value by this to get the preferred value |
+#'
+#' PPORRESU strings for common NCA parameters follow these patterns (where the
+#' unit variables are exactly the strings you passed in `units`):
+#'
+#' | Parameter type | PPORRESU pattern | Example |
+#' |---|---|---|
+#' | Concentration (Cmax, Ctrough) | `concu` | `"ng/mL"` |
+#' | Time (t½, Tmax) | `timeu` | `"h"` |
+#' | AUC | `timeu*concu` | `"h*ng/mL"` |
+#' | AUMC | `timeu^2*concu` | `"h^2*ng/mL"` |
+#' | Volume (Vz, Vss) | `doseu/(concu)` | `"mg/(ng/mL)"` |
+#' | Clearance (CL) | `doseu/(timeu*concu)` | `"mg/(h*ng/mL)"` |
+#'
+#' Example — converting V and CL to L / L/h for `concu = "ng/mL"`,
+#' `doseu = "mg"`, `timeu = "h"` (conversion factor = 1000 because
+#' 1 mg/(ng/mL) = 1000 L):
+#' ```r
+#' run_nca(data,
+#'   units = list(concu = "ng/mL", timeu = "h", doseu = "mg"),
+#'   conversions = data.frame(
+#'     PPORRESU          = c("mg/(ng/mL)",   "mg/(h*ng/mL)"),
+#'     PPSTRESU          = c("L",            "L/h"),
+#'     conversion_factor = c(1000,           1000)
+#'   )
+#' )
+#' ```
+#'
+#' **Using `concu_pref` / `doseu_pref` (requires the `units` R package)**
+#'
+#' As an alternative, PKNCA can derive conversion factors automatically via the
+#' `units` package. Pass `concu_pref` (and/or `doseu_pref`, `timeu_pref`,
+#' `amountu_pref`) inside the `units` list. Unit strings for `_pref` fields
+#' must be recognised by the `units` package (standard SI abbreviations).
+#'
+#' The preferred concentration unit controls the derived units. To obtain V in
+#' L and CL in L/h, choose a `concu_pref` whose mass unit matches `doseu`:
+#' ```r
+#' # concu = "ng/mL", doseu = "mg" -> set concu_pref = "mg/L"
+#' # V = mg / (mg/L) = L, CL = mg / (h * mg/L) = L/h
+#' run_nca(data,
+#'   units = list(concu = "ng/mL", timeu = "h", doseu = "mg",
+#'                concu_pref = "mg/L")
+#' )
+#' ```
+#'
 #' @returns NULL
 #' @export
 #' 
@@ -804,10 +879,12 @@ set_pknca_interval_parameters <- function(time, parameters) {
 #' Get a table of units from a raw PKNCA object
 #' 
 #' @param data PKNCA output object
+#' @param units_col the name of the column holding the units, default is 
+#' `PPSTRESU`
 #' 
 #' @returns data.frame with `name` and `unit` columns
 #' 
-get_nca_units <- function(data, units_col = "PPORRESU") {
+get_nca_units <- function(data, units_col = "PPSTRESU") {
   units_data <- data$result %>%
     dplyr::select(name = .data$PPTESTCD, unit = .data[[units_col]]) %>%
     dplyr::distinct()

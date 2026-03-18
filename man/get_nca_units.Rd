@@ -4,10 +4,13 @@
 \alias{get_nca_units}
 \title{Get a table of units from a raw PKNCA object}
 \usage{
-get_nca_units(data, units_col = "PPORRESU")
+get_nca_units(data, units_col = "PPSTRESU")
 }
 \arguments{
 \item{data}{PKNCA output object}
+
+\item{units_col}{the name of the column holding the units, default is
+\code{PPSTRESU}}
 }
 \value{
 data.frame with \code{name} and \code{unit} columns

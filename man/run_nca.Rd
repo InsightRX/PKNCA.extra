@@ -142,7 +142,8 @@ columns \code{PPORRESU} (original unit), \code{PPSTRESU} (preferred unit), and
 accepted by \code{PKNCA::pknca_units_table(conversions = ...)}. This is an
 alternative to \code{concu_pref}/\code{doseu_pref} that does not require the \code{units}
 R package. Only used when \code{units} is a named list (not a pre-built
-data.frame).}
+data.frame). See the \emph{Unit strings and conversions} section for format
+details.}
 
 \item{sequence_from}{optional. Argument should specify the column name
 that indicates the treatment e.g. for food-effect cross-over trials. It
@@ -212,6 +213,83 @@ require the dose such as CL, V, etc will be returned as NA. Can only be used
 for single dose, unless \code{groups} are used to separate the dosing occasions.
 }
 }
+\section{Unit strings and conversions}{
+
+
+\strong{Unit string format}
+
+The \code{concu}, \code{timeu}, \code{doseu}, and \code{amountu} fields in the \code{units} list are
+free-form label strings. PKNCA passes them through as-is to build composite
+unit labels for each NCA parameter (e.g. AUC = \code{timeu*concu}, V =
+\code{doseu/(concu)}, CL = \code{doseu/(timeu*concu)}). There is no built-in
+validation or normalisation, so:
+\itemize{
+\item \strong{Use consistent, conventional abbreviations} throughout: \code{"mg"} not
+\code{"MG"} or \code{"milligram"}, \code{"h"} not \code{"hr"} or \code{"hours"}, \code{"ng/mL"} not
+\code{"ng*mL-1"}.
+\item \strong{Case is significant}: \code{"mg"} and \code{"MG"} produce different PPORRESU
+strings, which matter when matching entries in \code{conversions}.
+\item \strong{Concentration units} should be written as \code{"<mass>/<volume>"}, e.g.
+\code{"ng/mL"}, \code{"ug/mL"}, \code{"mg/L"}, \code{"nmol/L"}.
+\item \strong{Dose units} may include a body-weight denominator, e.g. \code{"mg/kg"}.
+}
+
+\strong{Using \code{conversions} (no \code{units} package required)}
+
+The \code{conversions} data.frame maps a raw PPORRESU string to a preferred
+display unit with a numeric conversion factor:\tabular{ll}{
+   Column \tab Description \cr
+   \code{PPORRESU} \tab Exact PPORRESU string as produced by PKNCA (case-sensitive) \cr
+   \code{PPSTRESU} \tab Preferred output unit label \cr
+   \code{conversion_factor} \tab Multiply the raw value by this to get the preferred value \cr
+}
+
+
+PPORRESU strings for common NCA parameters follow these patterns (where the
+unit variables are exactly the strings you passed in \code{units}):\tabular{lll}{
+   Parameter type \tab PPORRESU pattern \tab Example \cr
+   Concentration (Cmax, Ctrough) \tab \code{concu} \tab \code{"ng/mL"} \cr
+   Time (t½, Tmax) \tab \code{timeu} \tab \code{"h"} \cr
+   AUC \tab \code{timeu*concu} \tab \code{"h*ng/mL"} \cr
+   AUMC \tab \code{timeu^2*concu} \tab \code{"h^2*ng/mL"} \cr
+   Volume (Vz, Vss) \tab \code{doseu/(concu)} \tab \code{"mg/(ng/mL)"} \cr
+   Clearance (CL) \tab \code{doseu/(timeu*concu)} \tab \code{"mg/(h*ng/mL)"} \cr
+}
+
+
+Example — converting V and CL to L / L/h for \code{concu = "ng/mL"},
+\code{doseu = "mg"}, \code{timeu = "h"} (conversion factor = 1000 because
+1 mg/(ng/mL) = 1000 L):
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{run_nca(data,
+  units = list(concu = "ng/mL", timeu = "h", doseu = "mg"),
+  conversions = data.frame(
+    PPORRESU          = c("mg/(ng/mL)",   "mg/(h*ng/mL)"),
+    PPSTRESU          = c("L",            "L/h"),
+    conversion_factor = c(1000,           1000)
+  )
+)
+}\if{html}{\out{</div>}}
+
+\strong{Using \code{concu_pref} / \code{doseu_pref} (requires the \code{units} R package)}
+
+As an alternative, PKNCA can derive conversion factors automatically via the
+\code{units} package. Pass \code{concu_pref} (and/or \code{doseu_pref}, \code{timeu_pref},
+\code{amountu_pref}) inside the \code{units} list. Unit strings for \verb{_pref} fields
+must be recognised by the \code{units} package (standard SI abbreviations).
+
+The preferred concentration unit controls the derived units. To obtain V in
+L and CL in L/h, choose a \code{concu_pref} whose mass unit matches \code{doseu}:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{# concu = "ng/mL", doseu = "mg" -> set concu_pref = "mg/L"
+# V = mg / (mg/L) = L, CL = mg / (h * mg/L) = L/h
+run_nca(data,
+  units = list(concu = "ng/mL", timeu = "h", doseu = "mg",
+               concu_pref = "mg/L")
+)
+}\if{html}{\out{</div>}}
+}
+
 \examples{
 \dontrun{
 run_nca(
