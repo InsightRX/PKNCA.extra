@@ -42,7 +42,15 @@ check_nca_grouping(
   list of settings for NCA. Provided setting names can either be
   settings recognized directly by `pknca`, or settings that are included
   in the map provided by `nca_settings_map()` (which are then mapped to
-  `pknca` setting names).
+  `pknca` setting names). In addition to standard PKNCA settings, the
+  following settings are handled internally and not passed to PKNCA:
+
+  - `min.hl.time` (or `minHalfLifeTime`): minimum time required for a
+    data point to be eligible for the lambda-z (terminal slope)
+    calculation. Any data points with time \< this value are excluded
+    from the lambda-z fit (but remain in the analysis for other
+    parameters such as Cmax and AUClast). This is implemented by setting
+    `exclude_lambda_z` flags internally.
 
 - threshold:
 

@@ -11,7 +11,7 @@ rds file if path is specified."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">PKNCA.extra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9002</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9003</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,9 +60,11 @@ rds file if <code>path</code> is specified.</p>
 <span>  exclude_lambda_z <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  include_lambda_z <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  units <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  conversions <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sequence_from <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  add_auctau <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  post <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>accumulation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>parameters <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auctau"</span>, <span class="st">"cmax"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  format <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"wide"</span>, <span class="st">"long"</span><span class="op">)</span>,</span>
 <span>  no_dots <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  path <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  check_grouping <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -103,7 +105,13 @@ If required entries are specified only partially, then default values
 <dd><p>list of settings for NCA. Provided setting names can either
 be settings recognized directly by <code>pknca</code>, or settings that are included in
 the map provided by <code>nca_settings_map()</code> (which are then mapped to <code>pknca</code>
-setting names).</p></dd>
+setting names). In addition to standard PKNCA settings, the following
+settings are handled internally and not passed to PKNCA:</p><ul><li><p><code>min.hl.time</code> (or <code>minHalfLifeTime</code>): minimum time required for a data
+point to be eligible for the lambda-z (terminal slope) calculation. Any
+data points with time &lt; this value are excluded from the lambda-z fit
+(but remain in the analysis for other parameters such as Cmax and AUClast).
+This is implemented by setting <code>exclude_lambda_z</code> flags internally.</p></li>
+</ul></dd>
 
 
 <dt id="arg-blq">blq<a class="anchor" aria-label="anchor" href="#arg-blq"></a></dt>
@@ -180,11 +188,29 @@ will be ignored for that subject and AUC interval.</p></dd>
 <dt id="arg-units">units<a class="anchor" aria-label="anchor" href="#arg-units"></a></dt>
 <dd><p>optional units specification, passed to <code><a href="http://humanpred.github.io/pknca/reference/PKNCAdata.html" class="external-link">PKNCA::PKNCAdata()</a></code>.
 Either a named list with elements <code>concu</code>, <code>timeu</code>, <code>doseu</code>, and/or
-<code>amountu</code> (plus optional <code>concu_pref</code>, <code>timeu_pref</code>, <code>doseu_pref</code>,
-<code>amountu_pref</code>, and <code>conversions</code> fields), which are forwarded to
-<code><a href="http://humanpred.github.io/pknca/reference/pknca_units_table.html" class="external-link">PKNCA::pknca_units_table()</a></code> internally; or a pre-built data frame from
-<code><a href="http://humanpred.github.io/pknca/reference/pknca_units_table.html" class="external-link">PKNCA::pknca_units_table()</a></code>. When provided, a <code>units</code> attribute containing
-a per-parameter units table is attached to the returned data frame.</p></dd>
+<code>amountu</code>, which are forwarded to <code><a href="http://humanpred.github.io/pknca/reference/pknca_units_table.html" class="external-link">PKNCA::pknca_units_table()</a></code> internally;
+or a pre-built data frame from <code><a href="http://humanpred.github.io/pknca/reference/pknca_units_table.html" class="external-link">PKNCA::pknca_units_table()</a></code>. When provided,
+a <code>units</code> attribute containing a per-parameter units table is attached to
+the returned data frame.</p>
+<p>To automatically simplify derived units (e.g. V in <code>L</code>, CL in <code>L/h</code>),
+include <code>concu_pref</code> and/or <code>doseu_pref</code> in the list — these are forwarded
+to <code><a href="http://humanpred.github.io/pknca/reference/pknca_units_table.html" class="external-link">PKNCA::pknca_units_table()</a></code> and use the <code>units</code> R package to compute
+conversion factors automatically. For example:</p>
+<p></p><div class="sourceCode r"><pre><code><span><span class="va">units</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  concu <span class="op">=</span> <span class="st">"ng/mL"</span>, timeu <span class="op">=</span> <span class="st">"h"</span>, doseu <span class="op">=</span> <span class="st">"mg"</span>,</span>
+<span>  concu_pref <span class="op">=</span> <span class="st">"mg/L"</span>   <span class="co"># makes V = mg/(mg/L) = L, CL = L/h</span></span>
+<span><span class="op">)</span></span></code></pre><p></p></div></dd>
+
+
+<dt id="arg-conversions">conversions<a class="anchor" aria-label="anchor" href="#arg-conversions"></a></dt>
+<dd><p>optional manual unit conversion table — a data.frame with
+columns <code>PPORRESU</code> (original unit), <code>PPSTRESU</code> (preferred unit), and
+<code>conversion_factor</code> (multiply PPORRESU value to obtain PPSTRESU value), as
+accepted by <code>PKNCA::pknca_units_table(conversions = ...)</code>. This is an
+alternative to <code>concu_pref</code>/<code>doseu_pref</code> that does not require the <code>units</code>
+R package. Only used when <code>units</code> is a named list (not a pre-built
+data.frame). See the <em>Unit strings and conversions</em> section for format
+details.</p></dd>
 
 
 <dt id="arg-sequence-from">sequence_from<a class="anchor" aria-label="anchor" href="#arg-sequence-from"></a></dt>
@@ -210,6 +236,10 @@ will add accumulation ratios for the parameters listed in the <code>parameters</
 argument to the NCA output table for each interval.</p></li>
 </ul><p>Other options may be added in future. Default is:
 <code>list("accumulation" = list("parameters" = c("auclast", "cmax")))</code>.</p></dd>
+
+
+<dt id="arg-format">format<a class="anchor" aria-label="anchor" href="#arg-format"></a></dt>
+<dd><p>output as table in wide or long format.</p></dd>
 
 
 <dt id="arg-no-dots">no_dots<a class="anchor" aria-label="anchor" href="#arg-no-dots"></a></dt>
@@ -258,6 +288,52 @@ info in the data. NCA can still compute AUC and Cmax etc, but parameters that
 require the dose such as CL, V, etc will be returned as NA. Can only be used
 for single dose, unless <code>groups</code> are used to separate the dosing occasions.</p></li>
 </ol></div>
+    <div class="section level2">
+    <h2 id="unit-strings-and-conversions">Unit strings and conversions<a class="anchor" aria-label="anchor" href="#unit-strings-and-conversions"></a></h2>
+
+
+
+<p><strong>Unit string format</strong></p>
+<p>The <code>concu</code>, <code>timeu</code>, <code>doseu</code>, and <code>amountu</code> fields in the <code>units</code> list are
+free-form label strings. PKNCA passes them through as-is to build composite
+unit labels for each NCA parameter (e.g. AUC = <code>timeu*concu</code>, V =
+<code>doseu/(concu)</code>, CL = <code>doseu/(timeu*concu)</code>). There is no built-in
+validation or normalisation, so:</p><ul><li><p><strong>Use consistent, conventional abbreviations</strong> throughout: <code>"mg"</code> not
+<code>"MG"</code> or <code>"milligram"</code>, <code>"h"</code> not <code>"hr"</code> or <code>"hours"</code>, <code>"ng/mL"</code> not
+<code>"ng*mL-1"</code>.</p></li>
+<li><p><strong>Case is significant</strong>: <code>"mg"</code> and <code>"MG"</code> produce different PPORRESU
+strings, which matter when matching entries in <code>conversions</code>.</p></li>
+<li><p><strong>Concentration units</strong> should be written as <code>"&lt;mass&gt;/&lt;volume&gt;"</code>, e.g.
+<code>"ng/mL"</code>, <code>"ug/mL"</code>, <code>"mg/L"</code>, <code>"nmol/L"</code>.</p></li>
+<li><p><strong>Dose units</strong> may include a body-weight denominator, e.g. <code>"mg/kg"</code>.</p></li>
+</ul><p><strong>Using <code>conversions</code> (no <code>units</code> package required)</strong></p>
+<p>The <code>conversions</code> data.frame maps a raw PPORRESU string to a preferred
+display unit with a numeric conversion factor:</p><table class="table table"><tr><td>Column</td><td>Description</td></tr><tr><td><code>PPORRESU</code></td><td>Exact PPORRESU string as produced by PKNCA (case-sensitive)</td></tr><tr><td><code>PPSTRESU</code></td><td>Preferred output unit label</td></tr><tr><td><code>conversion_factor</code></td><td>Multiply the raw value by this to get the preferred value</td></tr></table><p>PPORRESU strings for common NCA parameters follow these patterns (where the
+unit variables are exactly the strings you passed in <code>units</code>):</p><table class="table table"><tr><td>Parameter type</td><td>PPORRESU pattern</td><td>Example</td></tr><tr><td>Concentration (Cmax, Ctrough)</td><td><code>concu</code></td><td><code>"ng/mL"</code></td></tr><tr><td>Time (t½, Tmax)</td><td><code>timeu</code></td><td><code>"h"</code></td></tr><tr><td>AUC</td><td><code>timeu*concu</code></td><td><code>"h*ng/mL"</code></td></tr><tr><td>AUMC</td><td><code>timeu^2*concu</code></td><td><code>"h^2*ng/mL"</code></td></tr><tr><td>Volume (Vz, Vss)</td><td><code>doseu/(concu)</code></td><td><code>"mg/(ng/mL)"</code></td></tr><tr><td>Clearance (CL)</td><td><code>doseu/(timeu*concu)</code></td><td><code>"mg/(h*ng/mL)"</code></td></tr></table><p>Example — converting V and CL to L / L/h for <code>concu = "ng/mL"</code>,
+<code>doseu = "mg"</code>, <code>timeu = "h"</code> (conversion factor = 1000 because
+1 mg/(ng/mL) = 1000 L):</p>
+<p></p><div class="sourceCode r"><pre><code><span><span class="fu"><a href="../reference/run_nca.html">run_nca</a></span><span class="op">(</span><span class="va">data</span>,</span>
+<span>  units <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>concu <span class="op">=</span> <span class="st">"ng/mL"</span>, timeu <span class="op">=</span> <span class="st">"h"</span>, doseu <span class="op">=</span> <span class="st">"mg"</span><span class="op">)</span>,</span>
+<span>  conversions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    PPORRESU          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mg/(ng/mL)"</span>,   <span class="st">"mg/(h*ng/mL)"</span><span class="op">)</span>,</span>
+<span>    PPSTRESU          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"L"</span>,            <span class="st">"L/h"</span><span class="op">)</span>,</span>
+<span>    conversion_factor <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1000</span>,           <span class="fl">1000</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre><p></p></div>
+<p><strong>Using <code>concu_pref</code> / <code>doseu_pref</code> (requires the <code>units</code> R package)</strong></p>
+<p>As an alternative, PKNCA can derive conversion factors automatically via the
+<code>units</code> package. Pass <code>concu_pref</code> (and/or <code>doseu_pref</code>, <code>timeu_pref</code>,
+<code>amountu_pref</code>) inside the <code>units</code> list. Unit strings for <code>_pref</code> fields
+must be recognised by the <code>units</code> package (standard SI abbreviations).</p>
+<p>The preferred concentration unit controls the derived units. To obtain V in
+L and CL in L/h, choose a <code>concu_pref</code> whose mass unit matches <code>doseu</code>:</p>
+<p></p><div class="sourceCode r"><pre><code><span><span class="co"># concu = "ng/mL", doseu = "mg" -&gt; set concu_pref = "mg/L"</span></span>
+<span><span class="co"># V = mg / (mg/L) = L, CL = mg / (h * mg/L) = L/h</span></span>
+<span><span class="fu"><a href="../reference/run_nca.html">run_nca</a></span><span class="op">(</span><span class="va">data</span>,</span>
+<span>  units <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>concu <span class="op">=</span> <span class="st">"ng/mL"</span>, timeu <span class="op">=</span> <span class="st">"h"</span>, doseu <span class="op">=</span> <span class="st">"mg"</span>,</span>
+<span>               concu_pref <span class="op">=</span> <span class="st">"mg/L"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre><p></p></div>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

@@ -50,6 +50,9 @@ MIT © InsightRX
   : Extract individual fit data from a PKNCA results object, and return
   as data.frame convenient for plotting.
 
+- [`get_nca_units()`](https://insightrx.github.io/PKNCA.extra/reference/get_nca_units.md)
+  : Get a table of units from a raw PKNCA object
+
 - [`get_parameter_names_from_nca_data()`](https://insightrx.github.io/PKNCA.extra/reference/get_parameter_names_from_nca_data.md)
   : Get parameter names from a run_nca() output object
 

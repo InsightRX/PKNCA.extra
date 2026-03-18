@@ -11,7 +11,7 @@ perform NCA and calculate half-life, then the grouping is likely wrong."></head>
 
     <a class="navbar-brand me-2" href="../index.html">PKNCA.extra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9002</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9003</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,7 +80,13 @@ If required entries are specified only partially, then default values
 <dd><p>list of settings for NCA. Provided setting names can either
 be settings recognized directly by <code>pknca</code>, or settings that are included in
 the map provided by <code>nca_settings_map()</code> (which are then mapped to <code>pknca</code>
-setting names).</p></dd>
+setting names). In addition to standard PKNCA settings, the following
+settings are handled internally and not passed to PKNCA:</p><ul><li><p><code>min.hl.time</code> (or <code>minHalfLifeTime</code>): minimum time required for a data
+point to be eligible for the lambda-z (terminal slope) calculation. Any
+data points with time &lt; this value are excluded from the lambda-z fit
+(but remain in the analysis for other parameters such as Cmax and AUClast).
+This is implemented by setting <code>exclude_lambda_z</code> flags internally.</p></li>
+</ul></dd>
 
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
