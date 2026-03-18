@@ -20,9 +20,11 @@ run_nca(
   exclude_lambda_z = NULL,
   include_lambda_z = NULL,
   units = NULL,
+  conversions = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
+  format = c("wide", "long"),
   no_dots = TRUE,
   path = NULL,
   check_grouping = FALSE,
@@ -50,7 +52,15 @@ If required entries are specified only partially, then default values
 \item{settings}{list of settings for NCA. Provided setting names can either
 be settings recognized directly by \code{pknca}, or settings that are included in
 the map provided by \code{nca_settings_map()} (which are then mapped to \code{pknca}
-setting names).}
+setting names). In addition to standard PKNCA settings, the following
+settings are handled internally and not passed to PKNCA:
+\itemize{
+\item \code{min.hl.time} (or \code{minHalfLifeTime}): minimum time required for a data
+point to be eligible for the lambda-z (terminal slope) calculation. Any
+data points with time < this value are excluded from the lambda-z fit
+(but remain in the analysis for other parameters such as Cmax and AUClast).
+This is implemented by setting \code{exclude_lambda_z} flags internally.
+}}
 
 \item{blq}{optional, string to match in concentration data, e.g. "<" or
 "BLQ>. If \code{conc} column in the data is \code{character} class, then if \code{blq} is
@@ -110,11 +120,30 @@ will be ignored for that subject and AUC interval.}
 
 \item{units}{optional units specification, passed to \code{PKNCA::PKNCAdata()}.
 Either a named list with elements \code{concu}, \code{timeu}, \code{doseu}, and/or
-\code{amountu} (plus optional \code{concu_pref}, \code{timeu_pref}, \code{doseu_pref},
-\code{amountu_pref}, and \code{conversions} fields), which are forwarded to
-\code{PKNCA::pknca_units_table()} internally; or a pre-built data frame from
-\code{PKNCA::pknca_units_table()}. When provided, a \code{units} attribute containing
-a per-parameter units table is attached to the returned data frame.}
+\code{amountu}, which are forwarded to \code{PKNCA::pknca_units_table()} internally;
+or a pre-built data frame from \code{PKNCA::pknca_units_table()}. When provided,
+a \code{units} attribute containing a per-parameter units table is attached to
+the returned data frame.
+
+To automatically simplify derived units (e.g. V in \code{L}, CL in \code{L/h}),
+include \code{concu_pref} and/or \code{doseu_pref} in the list — these are forwarded
+to \code{PKNCA::pknca_units_table()} and use the \code{units} R package to compute
+conversion factors automatically. For example:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{units = list(
+  concu = "ng/mL", timeu = "h", doseu = "mg",
+  concu_pref = "mg/L"   # makes V = mg/(mg/L) = L, CL = L/h
+)
+}\if{html}{\out{</div>}}}
+
+\item{conversions}{optional manual unit conversion table — a data.frame with
+columns \code{PPORRESU} (original unit), \code{PPSTRESU} (preferred unit), and
+\code{conversion_factor} (multiply PPORRESU value to obtain PPSTRESU value), as
+accepted by \code{PKNCA::pknca_units_table(conversions = ...)}. This is an
+alternative to \code{concu_pref}/\code{doseu_pref} that does not require the \code{units}
+R package. Only used when \code{units} is a named list (not a pre-built
+data.frame). See the \emph{Unit strings and conversions} section for format
+details.}
 
 \item{sequence_from}{optional. Argument should specify the column name
 that indicates the treatment e.g. for food-effect cross-over trials. It
@@ -138,6 +167,8 @@ argument to the NCA output table for each interval.
 
 Other options may be added in future. Default is:
 \code{list("accumulation" = list("parameters" = c("auclast", "cmax")))}.}
+
+\item{format}{output as table in wide or long format.}
 
 \item{no_dots}{if \code{TRUE} (default) will replace any dots in parameter names
 (e.g. \code{aucinf.obs}) with underscores (\code{aucinf_obs}).}
@@ -182,6 +213,83 @@ require the dose such as CL, V, etc will be returned as NA. Can only be used
 for single dose, unless \code{groups} are used to separate the dosing occasions.
 }
 }
+\section{Unit strings and conversions}{
+
+
+\strong{Unit string format}
+
+The \code{concu}, \code{timeu}, \code{doseu}, and \code{amountu} fields in the \code{units} list are
+free-form label strings. PKNCA passes them through as-is to build composite
+unit labels for each NCA parameter (e.g. AUC = \code{timeu*concu}, V =
+\code{doseu/(concu)}, CL = \code{doseu/(timeu*concu)}). There is no built-in
+validation or normalisation, so:
+\itemize{
+\item \strong{Use consistent, conventional abbreviations} throughout: \code{"mg"} not
+\code{"MG"} or \code{"milligram"}, \code{"h"} not \code{"hr"} or \code{"hours"}, \code{"ng/mL"} not
+\code{"ng*mL-1"}.
+\item \strong{Case is significant}: \code{"mg"} and \code{"MG"} produce different PPORRESU
+strings, which matter when matching entries in \code{conversions}.
+\item \strong{Concentration units} should be written as \code{"<mass>/<volume>"}, e.g.
+\code{"ng/mL"}, \code{"ug/mL"}, \code{"mg/L"}, \code{"nmol/L"}.
+\item \strong{Dose units} may include a body-weight denominator, e.g. \code{"mg/kg"}.
+}
+
+\strong{Using \code{conversions} (no \code{units} package required)}
+
+The \code{conversions} data.frame maps a raw PPORRESU string to a preferred
+display unit with a numeric conversion factor:\tabular{ll}{
+   Column \tab Description \cr
+   \code{PPORRESU} \tab Exact PPORRESU string as produced by PKNCA (case-sensitive) \cr
+   \code{PPSTRESU} \tab Preferred output unit label \cr
+   \code{conversion_factor} \tab Multiply the raw value by this to get the preferred value \cr
+}
+
+
+PPORRESU strings for common NCA parameters follow these patterns (where the
+unit variables are exactly the strings you passed in \code{units}):\tabular{lll}{
+   Parameter type \tab PPORRESU pattern \tab Example \cr
+   Concentration (Cmax, Ctrough) \tab \code{concu} \tab \code{"ng/mL"} \cr
+   Time (t½, Tmax) \tab \code{timeu} \tab \code{"h"} \cr
+   AUC \tab \code{timeu*concu} \tab \code{"h*ng/mL"} \cr
+   AUMC \tab \code{timeu^2*concu} \tab \code{"h^2*ng/mL"} \cr
+   Volume (Vz, Vss) \tab \code{doseu/(concu)} \tab \code{"mg/(ng/mL)"} \cr
+   Clearance (CL) \tab \code{doseu/(timeu*concu)} \tab \code{"mg/(h*ng/mL)"} \cr
+}
+
+
+Example — converting V and CL to L / L/h for \code{concu = "ng/mL"},
+\code{doseu = "mg"}, \code{timeu = "h"} (conversion factor = 1000 because
+1 mg/(ng/mL) = 1000 L):
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{run_nca(data,
+  units = list(concu = "ng/mL", timeu = "h", doseu = "mg"),
+  conversions = data.frame(
+    PPORRESU          = c("mg/(ng/mL)",   "mg/(h*ng/mL)"),
+    PPSTRESU          = c("L",            "L/h"),
+    conversion_factor = c(1000,           1000)
+  )
+)
+}\if{html}{\out{</div>}}
+
+\strong{Using \code{concu_pref} / \code{doseu_pref} (requires the \code{units} R package)}
+
+As an alternative, PKNCA can derive conversion factors automatically via the
+\code{units} package. Pass \code{concu_pref} (and/or \code{doseu_pref}, \code{timeu_pref},
+\code{amountu_pref}) inside the \code{units} list. Unit strings for \verb{_pref} fields
+must be recognised by the \code{units} package (standard SI abbreviations).
+
+The preferred concentration unit controls the derived units. To obtain V in
+L and CL in L/h, choose a \code{concu_pref} whose mass unit matches \code{doseu}:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{# concu = "ng/mL", doseu = "mg" -> set concu_pref = "mg/L"
+# V = mg / (mg/L) = L, CL = mg / (h * mg/L) = L/h
+run_nca(data,
+  units = list(concu = "ng/mL", timeu = "h", doseu = "mg",
+               concu_pref = "mg/L")
+)
+}\if{html}{\out{</div>}}
+}
+
 \examples{
 \dontrun{
 run_nca(
