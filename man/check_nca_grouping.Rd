@@ -31,7 +31,15 @@ If required entries are specified only partially, then default values
 \item{settings}{list of settings for NCA. Provided setting names can either
 be settings recognized directly by \code{pknca}, or settings that are included in
 the map provided by \code{nca_settings_map()} (which are then mapped to \code{pknca}
-setting names).}
+setting names). In addition to standard PKNCA settings, the following
+settings are handled internally and not passed to PKNCA:
+\itemize{
+\item \code{min.hl.time} (or \code{minHalfLifeTime}): minimum time required for a data
+point to be eligible for the lambda-z (terminal slope) calculation. Any
+data points with time < this value are excluded from the lambda-z fit
+(but remain in the analysis for other parameters such as Cmax and AUClast).
+This is implemented by setting \code{exclude_lambda_z} flags internally.
+}}
 
 \item{threshold}{the fraction of data to be allowed to have too few data
 points for NCA.}

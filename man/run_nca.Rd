@@ -20,9 +20,11 @@ run_nca(
   exclude_lambda_z = NULL,
   include_lambda_z = NULL,
   units = NULL,
+  conversions = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(accumulation = list(parameters = c("auctau", "cmax"))),
+  format = c("wide", "long"),
   no_dots = TRUE,
   path = NULL,
   check_grouping = FALSE,
@@ -50,7 +52,15 @@ If required entries are specified only partially, then default values
 \item{settings}{list of settings for NCA. Provided setting names can either
 be settings recognized directly by \code{pknca}, or settings that are included in
 the map provided by \code{nca_settings_map()} (which are then mapped to \code{pknca}
-setting names).}
+setting names). In addition to standard PKNCA settings, the following
+settings are handled internally and not passed to PKNCA:
+\itemize{
+\item \code{min.hl.time} (or \code{minHalfLifeTime}): minimum time required for a data
+point to be eligible for the lambda-z (terminal slope) calculation. Any
+data points with time < this value are excluded from the lambda-z fit
+(but remain in the analysis for other parameters such as Cmax and AUClast).
+This is implemented by setting \code{exclude_lambda_z} flags internally.
+}}
 
 \item{blq}{optional, string to match in concentration data, e.g. "<" or
 "BLQ>. If \code{conc} column in the data is \code{character} class, then if \code{blq} is
@@ -110,11 +120,29 @@ will be ignored for that subject and AUC interval.}
 
 \item{units}{optional units specification, passed to \code{PKNCA::PKNCAdata()}.
 Either a named list with elements \code{concu}, \code{timeu}, \code{doseu}, and/or
-\code{amountu} (plus optional \code{concu_pref}, \code{timeu_pref}, \code{doseu_pref},
-\code{amountu_pref}, and \code{conversions} fields), which are forwarded to
-\code{PKNCA::pknca_units_table()} internally; or a pre-built data frame from
-\code{PKNCA::pknca_units_table()}. When provided, a \code{units} attribute containing
-a per-parameter units table is attached to the returned data frame.}
+\code{amountu}, which are forwarded to \code{PKNCA::pknca_units_table()} internally;
+or a pre-built data frame from \code{PKNCA::pknca_units_table()}. When provided,
+a \code{units} attribute containing a per-parameter units table is attached to
+the returned data frame.
+
+To automatically simplify derived units (e.g. V in \code{L}, CL in \code{L/h}),
+include \code{concu_pref} and/or \code{doseu_pref} in the list — these are forwarded
+to \code{PKNCA::pknca_units_table()} and use the \code{units} R package to compute
+conversion factors automatically. For example:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{units = list(
+  concu = "ng/mL", timeu = "h", doseu = "mg",
+  concu_pref = "mg/L"   # makes V = mg/(mg/L) = L, CL = L/h
+)
+}\if{html}{\out{</div>}}}
+
+\item{conversions}{optional manual unit conversion table — a data.frame with
+columns \code{PPORRESU} (original unit), \code{PPSTRESU} (preferred unit), and
+\code{conversion_factor} (multiply PPORRESU value to obtain PPSTRESU value), as
+accepted by \code{PKNCA::pknca_units_table(conversions = ...)}. This is an
+alternative to \code{concu_pref}/\code{doseu_pref} that does not require the \code{units}
+R package. Only used when \code{units} is a named list (not a pre-built
+data.frame).}
 
 \item{sequence_from}{optional. Argument should specify the column name
 that indicates the treatment e.g. for food-effect cross-over trials. It
@@ -138,6 +166,8 @@ argument to the NCA output table for each interval.
 
 Other options may be added in future. Default is:
 \code{list("accumulation" = list("parameters" = c("auclast", "cmax")))}.}
+
+\item{format}{output as table in wide or long format.}
 
 \item{no_dots}{if \code{TRUE} (default) will replace any dots in parameter names
 (e.g. \code{aucinf.obs}) with underscores (\code{aucinf_obs}).}

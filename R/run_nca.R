@@ -124,11 +124,28 @@
 #' will be ignored for that subject and AUC interval.
 #' @param units optional units specification, passed to `PKNCA::PKNCAdata()`.
 #' Either a named list with elements `concu`, `timeu`, `doseu`, and/or
-#' `amountu` (plus optional `concu_pref`, `timeu_pref`, `doseu_pref`,
-#' `amountu_pref`, and `conversions` fields), which are forwarded to
-#' `PKNCA::pknca_units_table()` internally; or a pre-built data frame from
-#' `PKNCA::pknca_units_table()`. When provided, a `units` attribute containing
-#' a per-parameter units table is attached to the returned data frame.
+#' `amountu`, which are forwarded to `PKNCA::pknca_units_table()` internally;
+#' or a pre-built data frame from `PKNCA::pknca_units_table()`. When provided,
+#' a `units` attribute containing a per-parameter units table is attached to
+#' the returned data frame.
+#'
+#' To automatically simplify derived units (e.g. V in `L`, CL in `L/h`),
+#' include `concu_pref` and/or `doseu_pref` in the list — these are forwarded
+#' to `PKNCA::pknca_units_table()` and use the `units` R package to compute
+#' conversion factors automatically. For example:
+#' ```r
+#' units = list(
+#'   concu = "ng/mL", timeu = "h", doseu = "mg",
+#'   concu_pref = "mg/L"   # makes V = mg/(mg/L) = L, CL = L/h
+#' )
+#' ```
+#' @param conversions optional manual unit conversion table — a data.frame with
+#' columns `PPORRESU` (original unit), `PPSTRESU` (preferred unit), and
+#' `conversion_factor` (multiply PPORRESU value to obtain PPSTRESU value), as
+#' accepted by `PKNCA::pknca_units_table(conversions = ...)`. This is an
+#' alternative to `concu_pref`/`doseu_pref` that does not require the `units`
+#' R package. Only used when `units` is a named list (not a pre-built
+#' data.frame).
 #' @param exclude_subjects optional, vector of subjects to exclude from NCA
 #' @param no_dots if `TRUE` (default) will replace any dots in parameter names
 #' (e.g. `aucinf.obs`) with underscores (`aucinf_obs`).
@@ -162,6 +179,7 @@ run_nca <- function(
   exclude_lambda_z = NULL,
   include_lambda_z = NULL,
   units = NULL,
+  conversions = NULL,
   sequence_from = NULL,
   add_auctau = TRUE,
   post = list(
@@ -459,7 +477,15 @@ run_nca <- function(
   
   ## Resolve units: convert named list to pknca_units_table data frame
   if (!is.null(units) && is.list(units) && !is.data.frame(units)) {
+    ## Resolve conversions: explicit > auto-detect > none
+    if (!is.null(conversions)) {
+      units$conversions <- conversions
+    }
     units <- do.call(PKNCA::pknca_units_table, units)
+  } else if (!is.null(units) && is.data.frame(units) && !is.null(conversions)) {
+    cli::cli_alert_warning(
+      "The 'conversions' argument is ignored when 'units' is a pre-built data.frame. Include 'conversions' in the list form of 'units' instead."
+    )
   }
 
   ## Combine to input object for PKNCA
@@ -499,15 +525,22 @@ run_nca <- function(
   units_data <- NULL
   ## prefer standardized units (PPSTRESU) when conversions were specified
   units_col <- ifelse("PPSTRESU" %in% names(tmp), "PPSTRESU", "PPORRESU")
+  value_col <- ifelse("PPSTRES" %in% names(tmp), "PPSTRES", "PPORRES")
   if(units_col %in% names(res$result)) { # remove units for wide-pivot, because they will introduce NA rows
     units_data <- get_nca_units(res, units_col)
-    tmp[[units_col]] <- NULL
+    tmp$PPSTRESU <- NULL
+    tmp$PPORRESU <- NULL
   }
   res_inf <- tmp %>%
+    dplyr::mutate(
+      value = .data[[value_col]],
+      PPSTRES = NULL,
+      PPORRES = NULL
+    ) |>
     dplyr::select(-"exclude") %>%
     tidyr::pivot_wider(
       names_from = "PPTESTCD", 
-      values_from = "PPORRES"
+      values_from = value
     ) %>%
     dplyr::mutate(
       # all columns with start/end matching partial_auc, and where other NCA params are NA
@@ -779,6 +812,5 @@ get_nca_units <- function(data, units_col = "PPORRESU") {
     dplyr::select(name = .data$PPTESTCD, unit = .data[[units_col]]) %>%
     dplyr::distinct()
   ## TODO: infer units for auctau and auc_partial
-  ## TODO: parse vz units properly ("mg/(mg/L)" should be "L")
   units_data
 }

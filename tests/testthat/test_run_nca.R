@@ -431,6 +431,26 @@ describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
     expect_false("PPORRESU" %in% names(attr(res_null, "PKNCA_object")$result))
   })
 
+  test_that("conversions argument passes manual conversion table to pknca_units_table", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+    manual_conv <- data.frame(
+      PPORRESU = c("mg/(ng/mL)", "mg/(h*ng/mL)"),
+      PPSTRESU = c("L", "L/h"),
+      conversion_factor = c(1000, 1000),
+      stringsAsFactors = FALSE
+    )
+    res <- run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      units = list(concu = "ng/mL", timeu = "h", doseu = "mg"),
+      conversions = manual_conv,
+      verbose = FALSE
+    )
+    u <- attr(res, "units")
+    expect_true("PPSTRESU" %in% names(attr(res, "PKNCA_object")$result))
+    expect_equal(u$unit[u$name == "vz_pred"], "L")
+    expect_equal(u$unit[u$name == "cl_pred"], "L/h")
+  })
+
   test_that("include_lambda_z gives warning when specified IDs not found in data", {
     expect_message(
       run_nca(
