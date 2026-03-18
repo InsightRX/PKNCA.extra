@@ -486,6 +486,10 @@ run_nca <- function(
     cli::cli_alert_warning(
       "The 'conversions' argument is ignored when 'units' is a pre-built data.frame. Include 'conversions' in the list form of 'units' instead."
     )
+  } else if (is.null(units) && !is.null(conversions)) {
+    cli::cli_alert_warning(
+      "The 'conversions' argument was provided but 'units' is NULL, so no unit conversions will be applied. Please supply 'units' as a named list if you want conversions to be used."
+    )
   }
 
   ## Combine to input object for PKNCA
