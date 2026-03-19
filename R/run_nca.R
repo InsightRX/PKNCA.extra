@@ -593,7 +593,6 @@ run_nca <- function(
     verbose = verbose,
     ...
   )
-  
   if(no_dots) {
     res$result$PPTESTCD <- gsub("\\.", "_", res$result$PPTESTCD)
   }
@@ -776,13 +775,30 @@ run_nca <- function(
     }
   }
   
+  ## Add lambdaz_fail: reason why lambda_z calculation failed, per subject/group/interval
+  pknca_group_vars <- res$data$conc$columns$groups$group_vars
+  lamz_rows <- as.data.frame(res$result)
+  lamz_rows <- lamz_rows[
+    grepl("^lambda[._]z$", lamz_rows$PPTESTCD),
+    unique(c(pknca_group_vars, "start", "end", "exclude")),
+    drop = FALSE
+  ]
+  names(lamz_rows)[names(lamz_rows) == "exclude"] <- "lambdaz_fail"
+  names(lamz_rows)[names(lamz_rows) == "start"] <- "nca_start"
+  names(lamz_rows)[names(lamz_rows) == "end"] <- "nca_end"
+  join_keys <- intersect(names(lamz_rows)[names(lamz_rows) != "lambdaz_fail"], names(nca_output))
+  if (length(join_keys) > 0) {
+    nca_output <- dplyr::left_join(nca_output, lamz_rows[, c(join_keys, "lambdaz_fail")], by = join_keys)
+  }
+
   ## Arrange output
   nca_output <- nca_output %>%
     dplyr::arrange_at(c(dictionary$subject_id, cols_groups, "nca_start"))
   
   ## Long format?
   if(format == "long") {
-    cols_static <- c(names(nca_output)[1:match("nca_end", names(nca_output))], "nca_interval")
+    cols_static <- c(names(nca_output)[1:match("nca_end", names(nca_output))], "nca_interval",
+                     intersect("lambdaz_fail", names(nca_output)))
     cols_pivot <- names(nca_output)[! names(nca_output) %in% cols_static]
     nca_output <- nca_output |>
       tidyr::pivot_longer(cols = cols_pivot)
