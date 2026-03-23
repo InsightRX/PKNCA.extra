@@ -454,6 +454,10 @@ describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
     expect_true("PPSTRESU" %in% names(attr(res, "PKNCA_object")$result))
     expect_equal(u$unit[u$name == "vz_pred"], "L")
     expect_equal(u$unit[u$name == "cl_pred"], "L/h")
+    ## get_nca_individual_fits() must not crash when PPSTRES is present
+    fits <- get_nca_individual_fits(attr(res, "PKNCA_object"))
+    expect_true(is.data.frame(fits))
+    expect_true("used_in_fit" %in% names(fits))
   })
 
   test_that("include_lambda_z gives warning when specified IDs not found in data", {
