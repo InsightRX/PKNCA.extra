@@ -19,7 +19,7 @@ test_that("get_nca_individual_fits works when units are specified in run_nca()",
 test_that("calculations are correct, for NCA with 2 groupings (subject, treatment)", {
   res <- readRDS(system.file("testdata/pknca/nca_testresult.rds", package = "PKNCA.extra"))
   fit <- get_nca_individual_fits(res, dictionary = list(foo = "SDEID", bar = "SITEID"))
-  expect_equal(names(fit), c("conc", "time", "treatment_group", "subject_id", "TREATXT", "SDEID", "SITEID", "n_points", "r_squared", "adj_r_squared", "blq", "used_in_fit", "excluded", "exclude_reason", "prediction"))
+  expect_equal(names(fit), c("conc", "time", "treatment_group", "subject_id", "TREATXT", "SDEID", "SITEID", "n_points", "r_squared", "adj_r_squared", "blq", "used_in_fit", "user_included", "excluded", "exclude_reason", "prediction"))
   expect_equal(nrow(fit), 3240)
   expect_equal(fit$conc[1:5], c(0.626, 27.7, 43.9, 48.8, 38.7))
   expect_equal(fit$prediction[1:5], c(NA_real_, NA_real_, NA_real_, NA_real_, NA_real_))
@@ -54,7 +54,7 @@ test_that("get_nca_individual_fits returns correct structure from run_nca output
   expect_equal(
     names(fit),
     c("PCORRES", "PCTPTNUM", "USUBJID", "n_points", "r_squared",
-      "adj_r_squared", "blq", "used_in_fit", "excluded", "exclude_reason", "prediction")
+      "adj_r_squared", "blq", "used_in_fit", "user_included", "excluded", "exclude_reason", "prediction")
   )
   ## 14 obs per subject + 40 prediction grid points per subject
   obs_only <- dplyr::filter(fit, is.na(prediction))
@@ -359,4 +359,60 @@ test_that("include_lambda_z + exclude_lambda_z: include takes precedence for sam
   ## Sum matches n_points
   n_pts <- unique(obs_only$n_points[!is.na(obs_only$n_points)])
   expect_equal(sum(obs_only$used_in_fit, na.rm = TRUE), n_pts)
+})
+
+## Tests for user_included column
+describe("user_included column", {
+
+  test_that("user_included is FALSE for all obs when include_lambda_z not specified", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+    nca_data <- run_nca(dat[dat$USUBJID %in% ids[1:2], ], verbose = FALSE)
+    nca_obj <- attr(nca_data, "PKNCA_object")
+    fit <- get_nca_individual_fits(nca_obj)
+    expect_true("user_included" %in% names(fit))
+    expect_true(all(fit$user_included == FALSE))
+  })
+
+  test_that("user_included is TRUE only for explicitly included points", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+    nca_data <- suppressWarnings(run_nca(
+      dat[dat$USUBJID == ids[2], ],
+      verbose = FALSE,
+      include_lambda_z = list(
+        SAMPLEID = list(
+          id = c(
+            "017011033-20140318T080000",  # t=8h
+            "017011033-20140318T120000",  # t=12h
+            "017011033-20140318T160000"   # t=16h
+          ),
+          reason = "forced inclusion"
+        )
+      )
+    ))
+    nca_obj <- attr(nca_data, "PKNCA_object")
+    fit <- get_nca_individual_fits(nca_obj)
+    obs_only <- dplyr::filter(fit, is.na(prediction))
+
+    expect_true(all(obs_only$user_included[obs_only$PCTPTNUM %in% c(8, 12, 16)]))
+    expect_true(all(!obs_only$user_included[!obs_only$PCTPTNUM %in% c(8, 12, 16)]))
+  })
+
+  test_that("user_included is FALSE for prediction rows", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+    nca_data <- suppressWarnings(run_nca(
+      dat[dat$USUBJID == ids[2], ],
+      verbose = FALSE,
+      include_lambda_z = list(
+        SAMPLEID = list(
+          id = c("017011033-20140318T080000", "017011033-20140318T120000"),
+          reason = "test"
+        )
+      )
+    ))
+    nca_obj <- attr(nca_data, "PKNCA_object")
+    fit <- get_nca_individual_fits(nca_obj)
+    pred_only <- dplyr::filter(fit, !is.na(prediction))
+    expect_true(all(pred_only$user_included == FALSE))
+  })
+
 })

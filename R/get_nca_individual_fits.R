@@ -125,7 +125,9 @@ get_nca_individual_fits <- function(
         dplyr::if_else(group_has_include, as.integer(.data[[incl_hl_col]]), used_in_fit)
       } else {
         used_in_fit
-      }
+      },
+      ## user_included: TRUE if this point was explicitly specified via include_lambda_z
+      user_included = if (!is.null(incl_hl_col)) .data[[incl_hl_col]] else FALSE
     ) %>%
     dplyr::select(-candidate, -candidate_nr, -group_has_include,
                   -dplyr::any_of(c(incl_hl_col, excl_hl_col))) %>%
@@ -145,7 +147,7 @@ get_nca_individual_fits <- function(
     ) %>%
       dplyr::select(-"exclude"),
     predictions %>%
-      dplyr::mutate(used_in_fit = 0)
+      dplyr::mutate(used_in_fit = 0, user_included = FALSE)
   ) %>%
     dplyr::arrange_at(c(group_names, vars$time))
   group_names_clean <- group_names[! group_names %in% vars$subject]

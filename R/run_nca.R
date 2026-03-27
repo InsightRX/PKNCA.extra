@@ -794,7 +794,7 @@ run_nca <- function(
   ## Arrange output
   nca_output <- nca_output %>%
     dplyr::arrange_at(c(dictionary$subject_id, cols_groups, "nca_start"))
-  
+
   ## Long format?
   if(format == "long") {
     cols_static <- c(names(nca_output)[1:match("nca_end", names(nca_output))], "nca_interval",
