@@ -11,13 +11,13 @@
 ## Citation
 
 Keizer R (2026). *PKNCA.extra: Functionality for non-compartmental
-analysis using PKNCA*. R package version 0.0.0.9005,
+analysis using PKNCA*. R package version 0.0.0.9007,
 <https://insightrx.github.io/PKNCA.extra/>.
 
     @Manual{,
       title = {PKNCA.extra: Functionality for non-compartmental analysis using PKNCA},
       author = {Ron Keizer},
       year = {2026},
-      note = {R package version 0.0.0.9005},
+      note = {R package version 0.0.0.9007},
       url = {https://insightrx.github.io/PKNCA.extra/},
     }
