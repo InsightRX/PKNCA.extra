@@ -13,12 +13,12 @@ test_that("NCA works properly and returns expected results for default config an
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 168)
-  expect_equal(ncol(nca_data), 20)
+  expect_equal(ncol(nca_data), 21)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end",
                                       "auclast", "aucall", "cmax", "tmax", "half.life", "lambda.z.n.points",
                                       "aucinf.obs", "aucinf.pred", "cl.pred", "vz.pred", "nca_interval",
-                                      "lambdaz_fail"))
+                                      "lambdaz_fail", "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$half.life), 1), 3288.5)
   expect_equal(round(sum(nca_data$aucinf.obs), 1), 14490.3)
   expect_equal(nca_data$nca_interval, rep("0 - Inf", 168))
@@ -39,11 +39,12 @@ test_that("NCA returns expected results for a non-default config", {
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 2)
-  expect_equal(ncol(nca_data), 24)
+  expect_equal(ncol(nca_data), 25)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end", "AUCLAST", "AUCALL", "CMAX", "TMAX",
                                   "cl.all", "THALF", "adj.r.squared", "lambda.z", "KELNOPT", "aucinf.obs",
-                                  "AUCINF", "CLF", "VZF", "kel.pred", "nca_interval", "lambdaz_fail"))
+                                  "AUCINF", "CLF", "VZF", "kel.pred", "nca_interval", "lambdaz_fail",
+                                  "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$THALF), 1), 25.8)
   expect_equal(round(sum(nca_data$AUCINF), 1), 116.6)
   
@@ -76,7 +77,7 @@ test_that("NCA returns expected results when settings are passed", {
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 2)
-  expect_equal(ncol(nca_data), 20)
+  expect_equal(ncol(nca_data), 21)
   expect_equal(min(nca_data$lambda.z.n.points), 5)
 })
 
@@ -89,12 +90,12 @@ test_that("NCA works properly and returns expected results when requesting parti
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 2)
-  expect_equal(ncol(nca_data), 21)
+  expect_equal(ncol(nca_data), 22)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end",
                                   "auclast", "aucall", "cmax", "tmax", "half.life", "lambda.z.n.points",
                                   "aucinf.obs", "aucinf.pred", "cl.pred", "vz.pred",
-                                  "auc_partial_0_4", "nca_interval", "lambdaz_fail"))
+                                  "auc_partial_0_4", "nca_interval", "lambdaz_fail", "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$auc_partial_0_4), 1), 12.8)
   expect_true("PKNCA_object" %in% names(attributes(nca_data)))
   expect_true(inherits(attr(nca_data, "PKNCA_object"), "PKNCAresults"))
@@ -115,12 +116,12 @@ test_that("NCA works properly and returns expected results when requesting one s
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 2)
-  expect_equal(ncol(nca_data), 21)
+  expect_equal(ncol(nca_data), 22)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end",
                                   "auclast", "aucall", "cmax", "tmax", "half.life", "lambda.z.n.points",
                                   "aucinf.obs", "aucinf.pred", "cl.pred", "vz.pred", "nca_interval", "auctau",
-                                  "lambdaz_fail"))
+                                  "lambdaz_fail", "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$auclast), 1), 77.9)
   expect_true("PKNCA_object" %in% names(attributes(nca_data)))
   expect_true(inherits(attr(nca_data, "PKNCA_object"), "PKNCAresults"))
@@ -140,12 +141,12 @@ test_that("NCA works properly and returns expected results when requesting two i
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 4 * 2)
-  expect_equal(ncol(nca_data), 21)
+  expect_equal(ncol(nca_data), 22)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end",
                                   "auclast", "aucall", "cmax", "tmax", "half.life", "lambda.z.n.points",
                                   "aucinf.obs", "aucinf.pred", "cl.pred", "vz.pred", "nca_interval", "auctau",
-                                  "lambdaz_fail"))
+                                  "lambdaz_fail", "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$auclast), 1), 393.9)
 })
 
@@ -165,12 +166,13 @@ test_that("NCA works properly and returns expected results when requesting two i
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 4 * 2)
-  expect_equal(ncol(nca_data), 22)
+  expect_equal(ncol(nca_data), 23)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end",
                                   "auclast", "aucall", "cmax", "tmax", "half.life", "lambda.z.n.points",
                                   "aucinf.obs", "aucinf.pred", "cl.pred", "vz.pred",
-                                  "auc_partial_0_12", "nca_interval", "auctau", "lambdaz_fail"))
+                                  "auc_partial_0_12", "nca_interval", "auctau", "lambdaz_fail",
+                                  "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$auclast), 1), 473.1)
   expect_equal(round(sum(nca_data$auc_partial_0_12), 1), 255.8)
 })
@@ -186,12 +188,12 @@ test_that("NCA works without dose info", {
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 2)
-  expect_equal(ncol(nca_data), 20)
+  expect_equal(ncol(nca_data), 21)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end",
                                   "auclast", "aucall", "cmax", "tmax", "half.life", "lambda.z.n.points",
                                   "aucinf.obs", "aucinf.pred", "cl.pred", "vz.pred", "nca_interval",
-                                  "lambdaz_fail"))
+                                  "lambdaz_fail", "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$half.life), 1), 25.8)
   expect_equal(round(sum(nca_data$aucinf.obs), 1), 117.2)
   expect_true(all(is.na(nca_data$cl.pred)))
@@ -217,12 +219,12 @@ test_that("NCA gives warning when partial AUC specifies duplicate interva but do
   )
   expect_equal(class(nca_data), "data.frame")
   expect_equal(nrow(nca_data), 4 * 2)
-  expect_equal(ncol(nca_data), 21)
+  expect_equal(ncol(nca_data), 22)
   expect_equal(names(nca_data), c("USUBJID", "ACTARM", "GROUP", "ADM", "STUDYID", "EXROUTE",
                                   "nca_start", "nca_end",
                                   "auclast", "aucall", "cmax", "tmax", "half.life", "lambda.z.n.points",
                                   "aucinf.obs", "aucinf.pred", "cl.pred", "vz.pred", "nca_interval", "auctau",
-                                  "lambdaz_fail"))
+                                  "lambdaz_fail", "lambdaz_user_points"))
   expect_equal(round(sum(nca_data$auclast), 1), 473.1)
   expect_equal(nca_data$nca_interval, rep(c("0 - 24", "0 - Inf"), 4))
 })
@@ -623,6 +625,45 @@ describe("lambdaz_fail column", {
     ))
     expect_false(is.na(nca_fail$lambdaz_fail))
     expect_true(is.na(nca_ok$lambdaz_fail))
+  })
+
+})
+
+describe("lambdaz_user_points column", {
+
+  test_that("lambdaz_user_points is FALSE for all subjects when include_lambda_z not specified", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+    nca <- suppressWarnings(run_nca(dat[dat$USUBJID %in% ids[1:5], ], verbose = FALSE))
+    expect_true("lambdaz_user_points" %in% names(nca))
+    expect_type(nca$lambdaz_user_points, "logical")
+    expect_true(all(nca$lambdaz_user_points == FALSE))
+  })
+
+  test_that("lambdaz_user_points is TRUE for subject with specified include_lambda_z points", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+    nca <- suppressWarnings(run_nca(
+      dat[dat$USUBJID %in% ids[1:2], ],
+      include_lambda_z = list(
+        SAMPLEID = list(
+          id = c("017011028-20130720T120000", "017011028-20130721T000000"),
+          reason = "test"
+        )
+      ),
+      verbose = FALSE
+    ))
+    expect_true(nca$lambdaz_user_points[nca$USUBJID == ids[1]])
+    expect_false(nca$lambdaz_user_points[nca$USUBJID == ids[2]])
+  })
+
+  test_that("lambdaz_user_points is a static column in long format, not pivoted", {
+    dat <- nca_admiral; ids <- unique(dat$USUBJID)
+    nca <- suppressWarnings(run_nca(
+      dat[dat$USUBJID %in% ids[1:3], ],
+      format = "long",
+      verbose = FALSE
+    ))
+    expect_true("lambdaz_user_points" %in% names(nca))
+    expect_false("lambdaz_user_points" %in% nca$name)
   })
 
 })

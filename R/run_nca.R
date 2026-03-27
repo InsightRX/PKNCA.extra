@@ -791,14 +791,33 @@ run_nca <- function(
     nca_output <- dplyr::left_join(nca_output, lamz_rows[, c(join_keys, "lambdaz_fail")], by = join_keys)
   }
 
+  ## Add lambdaz_user_points: TRUE if user specified explicit include_lambda_z points for this group
+  if (!is.null(lambda_z_incl_col)) {
+    lambdaz_user_rows <- pk_data |>
+      dplyr::group_by(dplyr::across(dplyr::any_of(pknca_group_vars))) |>
+      dplyr::summarize(
+        lambdaz_user_points = any(.data[[lambda_z_incl_col]] %in% TRUE),
+        .groups = "drop"
+      )
+    join_keys_user <- intersect(
+      names(lambdaz_user_rows)[names(lambdaz_user_rows) != "lambdaz_user_points"],
+      names(nca_output)
+    )
+    if (length(join_keys_user) > 0) {
+      nca_output <- dplyr::left_join(nca_output, lambdaz_user_rows[, c(join_keys_user, "lambdaz_user_points")], by = join_keys_user)
+    }
+  } else {
+    nca_output$lambdaz_user_points <- FALSE
+  }
+
   ## Arrange output
   nca_output <- nca_output %>%
     dplyr::arrange_at(c(dictionary$subject_id, cols_groups, "nca_start"))
-  
+
   ## Long format?
   if(format == "long") {
     cols_static <- c(names(nca_output)[1:match("nca_end", names(nca_output))], "nca_interval",
-                     intersect("lambdaz_fail", names(nca_output)))
+                     intersect(c("lambdaz_fail", "lambdaz_user_points"), names(nca_output)))
     cols_pivot <- names(nca_output)[! names(nca_output) %in% cols_static]
     nca_output <- nca_output |>
       tidyr::pivot_longer(cols = cols_pivot)
