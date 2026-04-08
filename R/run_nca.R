@@ -327,11 +327,17 @@ run_nca <- function(
   }
 
   ## Define concentration / dose / time columns for PKNCA
+  ## Wrap column names in backticks so special characters (parentheses, slashes, etc.) are handled correctly.
+  bt <- function(x) paste0("`", x, "`")
+  groups_formula_part <- ifelse(
+    is.null(groups), "",
+    paste(paste(bt(groups), collapse = "+"), "+")
+  )
   conc_formula <- as.formula(
-    paste(dictionary$conc, "~", dictionary$time, "|", paste(ifelse(is.null(groups), "", paste(paste(groups, collapse="+"), "+")),  dictionary$subject_id))
+    paste(bt(dictionary$conc), "~", bt(dictionary$time), "|", paste(groups_formula_part, bt(dictionary$subject_id)))
   )
   dose_formula <- as.formula(
-    paste(dictionary$dose, "~", dictionary$time, "|", paste(ifelse(is.null(groups), "", paste(paste(groups, collapse="+"), "+")),  dictionary$subject_id))
+    paste(bt(dictionary$dose), "~", bt(dictionary$time), "|", paste(groups_formula_part, bt(dictionary$subject_id)))
   )
   
   if(verbose) cli::cli_alert_info(paste0("Gathering input data for NCA"))

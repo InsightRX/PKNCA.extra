@@ -627,3 +627,21 @@ describe("lambdaz_fail column", {
 
 })
 
+test_that("run_nca works when column names contain special characters like parentheses and slashes", {
+  dat <- nca_admiral; ids <- unique(dat$USUBJID)
+  dat2 <- dat[dat$USUBJID %in% ids[1:3], ]
+  ## Rename columns to names with special characters
+  names(dat2)[names(dat2) == "ACONC"] <- "concentration_(mg/L)"
+  names(dat2)[names(dat2) == "NTIME"] <- "time (h)"
+  nca_data <- suppressWarnings(run_nca(
+    dat2,
+    dictionary = list(
+      conc = "concentration_(mg/L)",
+      time = "time (h)"
+    ),
+    verbose = FALSE
+  ))
+  expect_equal(class(nca_data), "data.frame")
+  expect_equal(nrow(nca_data), 3)
+})
+
