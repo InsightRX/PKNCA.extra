@@ -52,6 +52,9 @@
 #' ```
 #' The `run_nca()` function will compute all parameters that are specified in
 #' `settings()` or in the default settings.
+#' An `impute` column can be added to specify PKNCA imputation methods for
+#' the concentration at the interval start, which overrides the default
+#' imputation (see *Imputation* below).
 #' @param partial_auc a data.frame containing at least the `start` and `end`
 #' time for each row that specifies the start- and endtime for the partial AUC
 #' calculation. At least the AUC_0-t (`auclast`) will be calculated for each 
@@ -76,7 +79,12 @@
 #' as-is.
 #' @param dictionary abridged data dictionary for the input dataset, specified
 #' as list object. Requires at least entries for `subject_id`, `time`, `conc`, 
-#' `dose`. Optional entries are: `visit`.
+#' `dose`. Optional entries are: `visit`, `route`, and `duration`. `route`
+#' should be a column in the dose data with the route of administration (e.g.
+#' "IV", "intravenous", "oral"); intravenous routes are mapped to PKNCA's
+#' "intravascular", all others to "extravascular". `duration` should be a
+#' column with the dose duration (0 for bolus). Doses with an intravascular
+#' route and zero duration are treated as IV bolus (see *Imputation* below).
 #' If required entries are specified only partially, then default values 
 #' (i.e. CDISC) nomenclature will be imputed for missing identifiers.
 #' @param settings list of settings for NCA. Provided setting names can either
@@ -153,6 +161,23 @@
 #' @param format output as table in wide or long format.
 #' @param verbose verbose output?
 #' @param ... parameters passed to `PKNCA::pk.nca()`` function.
+#'
+#' @section Imputation:
+#'
+#' Unless an `impute` column is specified in `intervals`, the concentration at
+#' the start of each NCA interval is handled as follows:
+#'
+#' - An observed concentration at the interval start (e.g. a pre-dose trough
+#'   at the start of a dosing interval, or an observed C0) is always used and
+#'   never overwritten.
+#' - Otherwise, for IV bolus doses, C0 is back-extrapolated using log-linear
+#'   regression of the first two concentrations after the dose.
+#' - Otherwise, the last pre-dose concentration is used if it was taken
+#'   within 5% of the interval length before the interval start.
+#' - Otherwise, a concentration of 0 is imputed.
+#'
+#' See `PKNCA_impute_method_start_obs_predose_conc0()` and
+#' `PKNCA_impute_method_start_obs_c0_logslope()`.
 #'
 #' @section Unit strings and conversions:
 #'
@@ -472,10 +497,18 @@ run_nca <- function(
 
   ## Get dose data
   if(!is.null(dose_data)) {
-    dose_obj <- PKNCA::PKNCAdose(
+    pknca_dose_args <- list(
       data = dose_data,
       formula = dose_formula
     )
+    if(!is.null(dictionary$route) && dictionary$route %in% names(dose_data)) {
+      pknca_dose_args$data$nca_route <- normalize_nca_route(dose_data[[dictionary$route]])
+      pknca_dose_args$route <- "nca_route"
+    }
+    if(!is.null(dictionary$duration) && dictionary$duration %in% names(dose_data)) {
+      pknca_dose_args$duration <- dictionary$duration
+    }
+    dose_obj <- do.call(PKNCA::PKNCAdose, pknca_dose_args)
   } else {
     dose_obj <- NULL
   }
@@ -514,7 +547,7 @@ run_nca <- function(
     ## switch on/off parameter calculation based on current options for single
     cols_specified <- names(intervals)
     auc_options_template <- pknca_options$single.dose.aucs %>%
-      dplyr::select(-!!cols_specified)
+      dplyr::select(-dplyr::any_of(cols_specified))
     intervals <- intervals %>%
       dplyr::mutate(auc_options_template)
   } else {
@@ -547,13 +580,25 @@ run_nca <- function(
   ## Check that start of interval always has sample at that time.
   ## If not, add (unless `auto_start_sample = FALSE`).
   
-  ## Set imputation default.
-  ## We need to specify an impute, otherwise the NCA will throw an error
-  ## if the time doesn't match up exactly witht the interval
-  ## TODO: we may want to add some logic for this in the future
-  if(is.null(intervals$impute)) {
-    ## If `impute` not specified, set to use conc=0
-    intervals$impute <- rep("start_conc0", length(intervals$start))
+  ## Imputation of the concentration at the start of each interval.
+  ## If the user did not specify an `impute` column in `intervals`, the
+  ## method is chosen per interval after creating the PKNCAdata object (see
+  ## `assign_nca_impute()`): observed concentrations are never overwritten,
+  ## the pre-dose concentration is used if available, then 0, and for IV
+  ## bolus doses C0 is back-extrapolated.
+  user_impute <- !is.null(intervals$impute)
+  if(user_impute) {
+    user_impute_methods <- unique(intervals$impute)
+    if(length(user_impute_methods) == 1) {
+      ## single method: pass directly, also works when PKNCA generates the
+      ## intervals from the dose data
+      user_impute <- user_impute_methods
+    } else if(!is.null(dose_obj)) {
+      cli::cli_alert_warning("Multiple imputation methods in `intervals` are not supported when dose data is available, using {.val {user_impute_methods[1]}} for all intervals.")
+      user_impute <- user_impute_methods[1]
+    } else {
+      user_impute <- "impute"
+    }
   }
   
   ## Resolve units: convert named list to pknca_units_table data frame
@@ -575,7 +620,7 @@ run_nca <- function(
 
   ## Combine to input object for PKNCA
   pknca_data_args_base <- list(
-    impute = "start_conc0,start_predose",
+    impute = if(isFALSE(user_impute)) "start_obs_predose_conc0" else user_impute,
     options = list(single.dose.aucs = intervals)
   )
   if (!is.null(units)) pknca_data_args_base$units <- units
@@ -592,6 +637,12 @@ run_nca <- function(
     )
   }
   
+  if(isFALSE(user_impute)) {
+    comb_obj <- assign_nca_impute(comb_obj)
+  }
+  undo_expose <- expose_nca_impute_methods()
+  on.exit(undo_expose(), add = TRUE)
+
   ## Perform NCA
   if(verbose) cli::cli_alert_info("Performing NCA using PKNCA package")
   res <- PKNCA::pk.nca(
