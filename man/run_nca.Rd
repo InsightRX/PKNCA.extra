@@ -91,10 +91,12 @@ The \code{run_nca()} function will compute all parameters that are specified in
 
 \item{partial_auc}{a data.frame containing at least the \code{start} and \code{end}
 time for each row that specifies the start- and endtime for the partial AUC
-calculation. At least the AUC_0-t (\code{auclast}) will be calculated for each
+calculation. At least the AUC over the interval will be calculated for each
 row. Any other parameters specified in the data.frame as column will also be
 calculated, e.g. \code{cmax=TRUE}. Currently, only a single row can be supplied
-as argument.}
+as argument. The partial AUC is computed as PKNCA's \code{aucint.last.dose}
+(or \code{aucint.last} when no dose data is available), which interpolates or
+extrapolates the concentration to the \code{start} and \code{end} of the interval.}
 
 \item{exclude_points}{list of points to exclude for entire NCA analysis,
 based on name(s) in the list that should match column name in the input
@@ -152,9 +154,9 @@ output data.}
 
 \item{add_auctau}{compute AUCtau whenever relevant? TRUE (default) / FALSE.
 For multi-dose PK data, this will add the parameter \code{auc_tau} to the NCA
-output data as the AUC for each interval. In essence, it will just make a
-copy of the AUClast for the interval. See exact logic in function
-help page.}
+output data as the AUC for each interval. It is computed as PKNCA's
+\code{aucint.last.dose} (or \code{aucint.last} when no dose data is available) for
+each interval with a finite end. See exact logic in \code{\link[=nca_add_auctau]{nca_add_auctau()}}.}
 
 \item{post}{named list of lists, indicating which hard-coded
 post-processing steps to include, and options for each step.

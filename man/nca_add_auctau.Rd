@@ -17,10 +17,19 @@ nca_add_auctau(output, dictionary, verbose = FALSE)
 NCA output data with \code{auctau} added.
 }
 \description{
-Will copy \code{auclast} to \code{auctau} in the NCA output, for
+Will copy the interval AUC to \code{auctau} in the NCA output, for
 those intervals where the end of the interval is <Inf.
 }
 \details{
+The interval AUC is taken from the first available column of
+\code{aucint.last.dose}, \code{aucint.last} (or their \code{no_dots} variants). These
+interpolate/extrapolate the concentration to the end of the interval, so
+AUCtau is not biased low when the sample at the end of the dosing interval
+was drawn late. The dose-aware variant does not use samples after the next
+dose for interpolation. If none of these columns is available, \code{auclast} is
+used instead (with a warning), which only integrates up to the last sample
+at or before the end of the interval.
+
 It will first check if the NCA was indeed multi-dose,
 as this is not relevant variable for single-dose data.
 }
