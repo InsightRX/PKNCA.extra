@@ -4,16 +4,16 @@
 \alias{nca_add_auctau}
 \title{Add AUCtau to the NCA output, if multi-dose PK data}
 \usage{
-nca_add_auctau(output, dictionary, auc_col = "auclast", verbose = FALSE)
+nca_add_auctau(output, dictionary, verbose = FALSE, auc_col = "auclast")
 }
 \arguments{
 \item{output}{PKNCA output object}
 
 \item{dictionary}{data dictionary}
 
-\item{auc_col}{name of the column with the AUC to use for \code{auctau}.}
-
 \item{verbose}{verbose output?}
+
+\item{auc_col}{name of the column with the AUC to use for \code{auctau}.}
 }
 \value{
 NCA output data with \code{auctau} added.

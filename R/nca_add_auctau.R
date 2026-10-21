@@ -10,8 +10,8 @@
 #'
 #' @param output PKNCA output object
 #' @param dictionary data dictionary
-#' @param auc_col name of the column with the AUC to use for `auctau`.
 #' @param verbose verbose output?
+#' @param auc_col name of the column with the AUC to use for `auctau`.
 #' 
 #' @returns 
 #' NCA output data with `auctau` added.
@@ -20,8 +20,8 @@
 nca_add_auctau <- function(
   output,
   dictionary,
-  auc_col = "auclast",
-  verbose = FALSE
+  verbose = FALSE,
+  auc_col = "auclast"
 ) {
   
   if(auc_col %in% names(output)) {

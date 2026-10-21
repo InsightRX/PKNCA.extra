@@ -263,8 +263,10 @@ without a sample at that time), PKNCA extrapolates the concentration at
 the end as zero, so the AUC is still underestimated.
 \item \verb{aucint.*} does not use the start-of-interval imputation (see
 \emph{Imputation}), e.g. C0 back-extrapolation for an IV bolus.
-\item For multi-dose data, PKNCA only selects a dosing interval when a
-concentration was measured exactly at both dose times. If no interval
+\item For multi-dose data, PKNCA only selects an interval between two doses
+when concentrations were measured exactly at both dose times, and the
+interval after the last dose when a concentration was measured exactly
+at the last dose time + tau. If no interval
 can be selected for any subject, \code{run_nca()} stops with an error. Partial
 AUC is not computed for multi-dose data.
 }

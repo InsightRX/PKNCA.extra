@@ -200,8 +200,10 @@
 #'   the end as zero, so the AUC is still underestimated.
 #' - `aucint.*` does not use the start-of-interval imputation (see
 #'   *Imputation*), e.g. C0 back-extrapolation for an IV bolus.
-#' - For multi-dose data, PKNCA only selects a dosing interval when a
-#'   concentration was measured exactly at both dose times. If no interval
+#' - For multi-dose data, PKNCA only selects an interval between two doses
+#'   when concentrations were measured exactly at both dose times, and the
+#'   interval after the last dose when a concentration was measured exactly
+#'   at the last dose time + tau. If no interval
 #'   can be selected for any subject, `run_nca()` stops with an error. Partial
 #'   AUC is not computed for multi-dose data.
 #'
@@ -668,7 +670,7 @@ run_nca <- function(
         if(grepl("data_intervals", conditionMessage(e))) {
           cli::cli_abort(c(
             "No NCA intervals could be selected from the dosing schedule.",
-            "i" = "For multi-dose data, PKNCA only selects a dosing interval when concentrations were measured exactly at both dose times (and at the last dose time + tau for the interval after the last dose).",
+            "i" = "For multi-dose data, PKNCA only selects an interval between two doses when concentrations were measured exactly at both dose times, and the interval after the last dose when a concentration was measured exactly at the last dose time + tau.",
             "i" = "Use the `groups` argument to analyze each dosing occasion separately, e.g. when sampling times deviate from the dose times."
           ))
         }
