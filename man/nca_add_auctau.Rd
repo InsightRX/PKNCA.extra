@@ -4,12 +4,15 @@
 \alias{nca_add_auctau}
 \title{Add AUCtau to the NCA output, if multi-dose PK data}
 \usage{
-nca_add_auctau(output, dictionary, verbose = FALSE)
+nca_add_auctau(output, dictionary, auc_col = NULL, verbose = FALSE)
 }
 \arguments{
 \item{output}{PKNCA output object}
 
 \item{dictionary}{data dictionary}
+
+\item{auc_col}{name of the column in \code{output} to use for \code{auctau}. If
+\code{NULL} (default), the column is detected as described above.}
 
 \item{verbose}{verbose output?}
 }
@@ -21,8 +24,10 @@ Will copy the interval AUC to \code{auctau} in the NCA output, for
 those intervals where the end of the interval is <Inf.
 }
 \details{
-The interval AUC is taken from the first available column of
-\code{aucint.last.dose}, \code{aucint.last} (or their \code{no_dots} variants). These
+The interval AUC is taken from \code{auc_col} if specified (as done by
+\code{\link[=run_nca]{run_nca()}}, using the values from \code{\link[=compute_auctau]{compute_auctau()}}), otherwise from the
+first available column of \code{aucint.last.dose}, \code{aucint.last} (or their
+\code{no_dots} variants). These
 interpolate/extrapolate the concentration to the end of the interval, so
 AUCtau is not biased low when the sample at the end of the dosing interval
 was drawn late. The dose-aware variant does not use samples after the next

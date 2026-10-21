@@ -709,19 +709,46 @@ test_that("auctau interpolates to end of interval when boundary sample is late",
   expect_false("aucint_last_dose" %in% attr(nca_data, "parameters"))
 })
 
-test_that("auctau uses dose-aware aucint for PKNCA-selected multi-dose intervals", {
+test_that("auctau for multi-dose data is correct when the trough sample is drawn after the next dose", {
+  ## Doses at 0 and 12 h, IV bolus. The nominal 12 h sample is drawn after the
+  ## second dose, so PKNCA itself would not select the 0-12 h dosing interval.
+  ## Interpolating with that post-dose sample would overstate AUCtau, while
+  ## `auclast` stops at the 10 h sample and understates it.
   tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
   nca_data <- run_nca(
     tmp$data,
     dictionary = dict_late_boundary,
+    post = list(),
     verbose = FALSE
   )
-  ## PKNCA selects the dosing interval itself for multi-dose data
-  expect_equal(unique(nca_data$nca_end), 24)
-  res <- as.data.frame(attr(nca_data, "PKNCA_object"))
-  aucint <- res[res$PPTESTCD == "aucint_last_dose", ]
-  expect_equal(nca_data$auctau, aucint$PPORRES[match(nca_data$ID, aucint$ID)])
-  expect_false("aucint_last_dose" %in% names(nca_data))
+  first <- nca_data[nca_data$nca_start == 0, ]
+  expect_equal(nrow(first), 5)
+  expect_equal(first$nca_end, rep(12, 5))
+  expect_equal(first$auctau, true_auc, tolerance = 1e-4)
+  expect_true(all(first$auclast < true_auc))
+  ## second dosing interval is still selected, and auctau is computed for it
+  second <- nca_data[nca_data$nca_start == 12, ]
+  expect_equal(second$nca_end, rep(24, 5))
+  expect_true(all(!is.na(second$auctau)))
+  expect_false(any(c("aucint_last_dose", "aucint_inf_obs_dose", ".auctau_aucint") %in% names(nca_data)))
+})
+
+test_that("add_missing_dosing_intervals only adds dosing intervals PKNCA skipped", {
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  d <- tmp$data
+  conc_obj <- PKNCA::PKNCAconc(d[d$EVID == 0, ], DV ~ TIME | ID)
+  dose_obj <- PKNCA::PKNCAdose(d[d$EVID == 1, ], AMT ~ TIME | ID)
+  obj <- PKNCA::PKNCAdata(conc_obj, dose_obj)
+  expect_equal(unique(obj$intervals$start), 12)
+  obj2 <- add_missing_dosing_intervals(obj)
+  expect_equal(nrow(obj2$intervals), 10)
+  expect_equal(sort(unique(paste(obj2$intervals$start, obj2$intervals$end))), c("0 12", "12 24"))
+  expect_true(all(obj2$intervals$auclast[obj2$intervals$start == 0]))
+  ## nothing to add for single-dose data
+  dose_sd <- PKNCA::PKNCAdose(d[d$EVID == 1 & d$TIME == 0, ], AMT ~ TIME | ID)
+  obj_sd <- PKNCA::PKNCAdata(conc_obj, dose_sd)
+  expect_equal(add_missing_dosing_intervals(obj_sd)$intervals, obj_sd$intervals)
 })
 
 test_that("nca_add_auctau prefers aucint columns over auclast", {
