@@ -10,12 +10,14 @@
 #' interpolate/extrapolate the concentration to the end of the interval, so
 #' AUCtau is not biased low when the sample at the end of the dosing interval
 #' was drawn late. The dose-aware variant does not use samples after the next
-#' dose for interpolation. If none of these columns is available, `auclast` is
-#' used instead (with a warning), which only integrates up to the last sample
-#' at or before the end of the interval.
+#' dose for interpolation. If none of these columns is available, `auctau` is
+#' set to `NA` (with a warning). `auclast` is not used, since it only
+#' integrates up to the last sample at or before the end of the interval and
+#' therefore underestimates AUCtau when that sample was drawn late.
 #' 
-#' It will first check if the NCA was indeed multi-dose,
-#' as this is not relevant variable for single-dose data.
+#' `auctau` is only added when there is at least one interval with a finite
+#' end, as it is not a relevant variable for e.g. single-dose data analyzed
+#' over `[0, Inf]`. Rows for intervals with an infinite end get `NA`.
 #'
 #' @param output PKNCA output object
 #' @param dictionary data dictionary
@@ -38,30 +40,19 @@ nca_add_auctau <- function(
     aucint_cols <- c("aucint.last.dose", "aucint_last_dose", "aucint.last", "aucint_last")
     auc_col <- intersect(aucint_cols, names(output))[1]
   }
-  if(is.na(auc_col) && "auclast" %in% names(output)) {
-    if(any(output$nca_end < Inf & !is.na(output$auclast)))
-      cli::cli_alert_warning("Column `aucint.last.dose` / `aucint.last` not found in NCA data, using `auclast` for `auctau`. This may underestimate AUCtau when the last sample was drawn after the end of the interval.")
-    auc_col <- "auclast"
+  is_bounded <- output$nca_end < Inf
+  if(!any(is_bounded)) {
+    if(verbose)
+      cli::cli_alert_info("Not adding `auctau`, no intervals with a finite end detected in NCA output")
+    return(output)
   }
-  if(!is.na(auc_col)) {
-    ## Check that there are intervals where we need to add it.
-    ## We don't want to add auctau for single dose data
-    n_rows_to_update <- output |>
-      dplyr::filter(!is.na(.data[[auc_col]]) & .data$nca_end < Inf) |>
-      nrow()
-    if(n_rows_to_update == 0) {
-      if(verbose)
-        cli::cli_alert_info("Not adding `auctau`, no multi-dose intervals detected in NCA output")
-    } else{
-      if(verbose)
-        cli::cli_alert_info("Adding auctau for relevant subjects / intervals")
-      output <- output |>
-        dplyr::mutate(
-          auctau = dplyr::if_else(.data$nca_end < Inf, .data[[auc_col]], NA)
-        )
-    }
+  if(verbose)
+    cli::cli_alert_info("Adding auctau for relevant subjects / intervals")
+  if(is.na(auc_col)) {
+    cli::cli_alert_warning("No interval AUC (`aucint.*`) found in NCA data, setting `auctau` to NA. `auclast` is not used, since it underestimates AUCtau when the last sample was drawn after the end of the interval.")
+    output$auctau <- NA_real_
   } else {
-    cli::cli_alert_warning("Column `auclast` not found in NCA data, not adding `auctau` variable.")
+    output$auctau <- dplyr::if_else(is_bounded, as.numeric(output[[auc_col]]), NA_real_)
   }
 
   output
@@ -235,13 +226,11 @@ is_time_in_data <- function(intervals, obj, observed = FALSE) {
 #' after the last dose only when a concentration was measured exactly at the
 #' last dose time + tau. So when the trough sample was drawn slightly late or
 #' early, the dosing interval is not analyzed at all. This function adds those
-#' dosing intervals (with `auclast`, `cmax` and `tmax`, as PKNCA does), when:
-#'
-#' - for intervals between two doses: there is at least one concentration
-#' within the interval.
-#' - for the interval after the last dose (with tau determined by PKNCA): there
-#' is at least one concentration within the interval, and one at or after its
-#' end.
+#' dosing intervals (with `auclast`, `cmax` and `tmax`, as PKNCA does) when
+#' there is at least one concentration within the interval. The interval after
+#' the last dose uses tau as determined by PKNCA. When sampling stopped before
+#' the end of an interval, AUCtau is extrapolated using lambda-z (see
+#' [compute_interval_auc()]).
 #'
 #' @param comb_obj `PKNCAdata` object
 #' @param verbose verbose output?
@@ -277,9 +266,6 @@ add_missing_dosing_intervals <- function(comb_obj, verbose = FALSE) {
     for(j in seq_along(starts)) {
       if(is.na(ends[j])) next
       has_conc <- any(time_conc > starts[j] & time_conc < ends[j])
-      if(j == length(starts)) {
-        has_conc <- has_conc && any(time_conc >= ends[j])
-      }
       key <- do.call(paste, c(as.list(group), starts[j], ends[j], sep = "\r"))
       if(has_conc && !key %in% existing_keys) {
         new_intervals[[length(new_intervals) + 1]] <- cbind(

@@ -11,6 +11,11 @@
   skips because no sample was taken exactly at a dose time are now added, so
   AUCtau is reported for them (#19). AUCtau is computed in a separate PKNCA
   pass, so it does not add parameters to the main NCA output.
+* `nca_add_auctau()` no longer falls back to `auclast` when no interval AUC is
+  available, `auctau` is `NA` (with a warning) instead. The `auctau` column is
+  added whenever there is an interval with a finite end, also when all values
+  are `NA`. The final dosing interval is added also when sampling stopped
+  before its end, with AUCtau extrapolated using lambda-z (#19).
 * Partial AUC and AUCtau now also extrapolate (`aucint.inf.obs(.dose)`) when
   the end of the interval is after the last measurable sample, instead of
   stopping at the last sample. Excluded samples are not used as boundary

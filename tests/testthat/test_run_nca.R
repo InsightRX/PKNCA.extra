@@ -872,9 +872,46 @@ test_that("nca_add_auctau prefers aucint columns over auclast", {
   )
   res <- nca_add_auctau(out, dictionary = list())
   expect_equal(res$auctau, c(11, NA))
+  ## no `auclast` fallback, since it is biased low
   expect_message(
     res <- nca_add_auctau(out[, c("nca_end", "auclast")], dictionary = list()),
-    "using `auclast`"
+    "setting `auctau` to NA"
   )
-  expect_equal(res$auctau, c(10, NA))
+  expect_equal(res$auctau, c(NA_real_, NA_real_))
+  ## column is added even if all values are NA
+  out$aucint_last_dose <- NA_real_
+  res <- nca_add_auctau(out, dictionary = list())
+  expect_equal(res$auctau, c(NA_real_, NA_real_))
+  ## not added without bounded intervals
+  res <- nca_add_auctau(out[2, ], dictionary = list())
+  expect_false("auctau" %in% names(res))
+})
+
+test_that("final dosing interval is added and extrapolated when sampling stops before its end", {
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  ## subjects 1-2 sampled through 22 h only (no 24 h sample)
+  d <- tmp$data
+  d$TIME[d$EVID == 0 & d$TIME == 24 & d$ID %in% 1:2] <- 22
+  d$DV[d$EVID == 0 & d$TIME == 22] <- with(
+    tmp$subj[1:2, ],
+    100 / V * (exp(-CL / V * 22) + exp(-CL / V * 10))
+  )
+  ## extra samples in second interval so lambda-z can be estimated
+  extra <- d[d$EVID == 0 & d$TIME == 16, ]
+  extra$TIME <- 19
+  extra$DV <- with(tmp$subj, 100 / V * (exp(-CL / V * 19) + exp(-CL / V * 7)))
+  d <- rbind(d, extra)
+  d <- d[order(d$ID, d$TIME, -d$EVID), ]
+  ## (AUCtau over 12-24 h is not compared to the analytical value, since the
+  ## start of the interval after an IV bolus is not handled exactly, see #20)
+  nca_data <- run_nca(
+    d,
+    dictionary = dict_late_boundary,
+    post = list(),
+    verbose = FALSE
+  )
+  second <- nca_data[nca_data$nca_start == 12, ]
+  expect_equal(second$ID, 1:5)
+  expect_true(all(second$nca_end == 24))
+  expect_true(all(!is.na(second$auctau)))
 })

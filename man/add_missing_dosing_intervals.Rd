@@ -20,15 +20,10 @@ concentration was measured exactly at both dose times, and the interval
 after the last dose only when a concentration was measured exactly at the
 last dose time + tau. So when the trough sample was drawn slightly late or
 early, the dosing interval is not analyzed at all. This function adds those
-dosing intervals (with \code{auclast}, \code{cmax} and \code{tmax}, as PKNCA does), when:
-}
-\details{
-\itemize{
-\item for intervals between two doses: there is at least one concentration
-within the interval.
-\item for the interval after the last dose (with tau determined by PKNCA): there
-is at least one concentration within the interval, and one at or after its
-end.
-}
+dosing intervals (with \code{auclast}, \code{cmax} and \code{tmax}, as PKNCA does) when
+there is at least one concentration within the interval. The interval after
+the last dose uses tau as determined by PKNCA. When sampling stopped before
+the end of an interval, AUCtau is extrapolated using lambda-z (see
+\code{\link[=compute_interval_auc]{compute_interval_auc()}}).
 }
 \keyword{internal}

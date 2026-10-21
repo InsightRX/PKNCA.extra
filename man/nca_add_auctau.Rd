@@ -31,10 +31,12 @@ first available column of \code{aucint.last.dose}, \code{aucint.last} (or their
 interpolate/extrapolate the concentration to the end of the interval, so
 AUCtau is not biased low when the sample at the end of the dosing interval
 was drawn late. The dose-aware variant does not use samples after the next
-dose for interpolation. If none of these columns is available, \code{auclast} is
-used instead (with a warning), which only integrates up to the last sample
-at or before the end of the interval.
+dose for interpolation. If none of these columns is available, \code{auctau} is
+set to \code{NA} (with a warning). \code{auclast} is not used, since it only
+integrates up to the last sample at or before the end of the interval and
+therefore underestimates AUCtau when that sample was drawn late.
 
-It will first check if the NCA was indeed multi-dose,
-as this is not relevant variable for single-dose data.
+\code{auctau} is only added when there is at least one interval with a finite
+end, as it is not a relevant variable for e.g. single-dose data analyzed
+over \verb{[0, Inf]}. Rows for intervals with an infinite end get \code{NA}.
 }
