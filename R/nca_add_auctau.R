@@ -124,6 +124,23 @@ compute_interval_auc <- function(comb_obj, intervals, label = "AUC") {
     intervals <- split_at_doses(intervals, comb_obj)
   }
 
+  ## Imputation methods per interval (as assigned automatically by `run_nca()`)
+  ## are needed to use a specific method for an interval. For parts starting at
+  ## a repeated IV bolus with a pre-dose concentration at the time of the dose,
+  ## back-extrapolate C0 instead of using the pre-dose concentration (this
+  ## affects e.g. the selection of points for lambda-z).
+  impute_col <- comb_obj$impute
+  has_impute_col <- length(impute_col) == 1 && !is.na(impute_col) &&
+    impute_col %in% names(comb_obj$intervals)
+  if(has_dose && has_impute_col) {
+    force_c0 <- is_repeat_bolus_start(intervals, comb_obj) &
+      is_time_in_data(intervals, comb_obj$conc, observed = TRUE, column = "start")
+    if(any(force_c0)) {
+      if(is.null(intervals[[impute_col]])) intervals[[impute_col]] <- NA_character_
+      intervals[[impute_col]][force_c0] <- "start_c0_logslope"
+    }
+  }
+
   ## Extrapolate when the end of the interval can't be interpolated from usable
   ## samples: no sample at `end`, and either no measurable sample after `end`
   ## or a dose at `end` (samples after the dose can't be used).
@@ -147,13 +164,17 @@ compute_interval_auc <- function(comb_obj, intervals, label = "AUC") {
   ## (or the end of the interval): replace `aucint` by `auclast`, which uses
   ## the imputation. The segment uses the same `aucint` parameter as the full
   ## interval, so the dose is handled identically.
-  segments <- data.frame(.id = integer(0), start = numeric(0), end = numeric(0))
+  segments <- data.frame(.id = integer(0), start = numeric(0), end = numeric(0), impute = character(0))
   if(has_dose) {
-    segments <- get_dose_segments(intervals, comb_obj)
+    segments <- get_dose_segments(intervals, comb_obj, force_c0 = has_impute_col)
   }
   part_seg <- intervals[match(segments$.id, intervals$.id), , drop = FALSE]
   part_seg$start <- segments$start
   part_seg$end <- segments$end
+  if(has_impute_col) {
+    ## assigned again for the segment start, unless a specific method is needed
+    part_seg[[impute_col]] <- segments$impute
+  }
   part_seg$auclast <- rep(TRUE, nrow(part_seg))
   part_seg$.seg <- seq_len(nrow(part_seg))
 
@@ -372,13 +393,24 @@ is_time_in_data <- function(intervals, obj, observed = FALSE, column = "end") {
 #' interval). Doses without a measurable concentration after them within the
 #' segment are skipped.
 #'
+#' A concentration at the time of a dose is the pre-dose concentration (as in
+#' PKNCA). For an IV bolus that is not the first dose of the group, this is
+#' the trough of the previous dosing interval, which is not the concentration
+#' after the dose. If `force_c0` is `TRUE`, such doses get a segment as well,
+#' with imputation method `start_c0_logslope` (back-extrapolation of C0,
+#' replacing the pre-dose concentration). For the first dose, a concentration
+#' at the time of the dose is kept as C0 (see [nca_impute_methods]).
+#'
 #' @param intervals data.frame with `.id`, `start`, `end` and group columns
 #' @param comb_obj `PKNCAdata` object
+#' @param force_c0 add segments for IV bolus doses with a pre-dose
+#' concentration, see above.
 #'
-#' @returns data.frame with `.id`, `start` and `end` of each segment
+#' @returns data.frame with `.id`, `start`, `end` and `impute` (`NA` unless
+#' a specific imputation method is needed) of each segment
 #'
 #' @keywords internal
-get_dose_segments <- function(intervals, comb_obj) {
+get_dose_segments <- function(intervals, comb_obj, force_c0 = FALSE) {
   conc_obj <- comb_obj$conc
   dose_obj <- comb_obj$dose
   conc_data <- usable_conc_data(conc_obj)
@@ -386,100 +418,163 @@ get_dose_segments <- function(intervals, comb_obj) {
   conc_value <- conc_data[[conc_obj$columns$concentration]]
   dose_data <- as.data.frame(dose_obj$data)
   dose_time <- dose_data[[dose_obj$columns$time]]
+  is_bolus <- is_iv_bolus(dose_obj)
   group_vars <- intersect(dose_obj$columns$groups$group_vars, names(intervals))
   in_group <- function(dat, i) {
     Reduce(`&`, lapply(group_vars, function(g) dat[[g]] %in% intervals[[g]][i]), rep(TRUE, nrow(dat)))
   }
   segments <- list()
   for(i in seq_len(nrow(intervals))) {
-    times_dose <- sort(unique(dose_time[in_group(dose_data, i)]))
+    dose_group <- in_group(dose_data, i)
+    times_dose <- sort(unique(dose_time[dose_group]))
     conc_group <- in_group(conc_data, i)
     start <- intervals$start[i]
     end <- intervals$end[i]
     for(d in times_dose[times_dose >= start & times_dose < end]) {
-      if(any(conc_group & conc_time == d)) next
+      impute <- NA_character_
+      if(any(conc_group & conc_time == d)) {
+        is_repeat_bolus <- any(dose_group & is_bolus & dose_time == d) && any(dose_group & dose_time < d)
+        if(!(force_c0 && is_repeat_bolus)) next
+        impute <- "start_c0_logslope"
+      }
       seg_end <- min(c(times_dose[times_dose > d], end))
       t_seg <- conc_time[conc_group & conc_value > 0 & conc_time > d & conc_time <= seg_end]
       if(length(t_seg) == 0) next
       segments[[length(segments) + 1]] <- data.frame(
         .id = intervals$.id[i],
         start = d,
-        end = max(t_seg)
+        end = max(t_seg),
+        impute = impute
       )
     }
   }
   if(length(segments) == 0) {
-    return(data.frame(.id = integer(0), start = numeric(0), end = numeric(0)))
+    return(data.frame(.id = integer(0), start = numeric(0), end = numeric(0), impute = character(0)))
   }
   do.call(rbind, segments)
 }
 
-#' Add dosing intervals skipped by PKNCA for multi-dose data
+#' Check for each interval whether it starts at a repeated IV bolus dose
 #'
+#' @param intervals data.frame with `start` and group columns
+#' @param comb_obj `PKNCAdata` object
+#'
+#' @returns logical vector, `TRUE` if `start` is the time of an IV bolus dose
+#' that is not the first dose in the group.
+#'
+#' @keywords internal
+is_repeat_bolus_start <- function(intervals, comb_obj) {
+  dose_obj <- comb_obj$dose
+  dose_data <- as.data.frame(dose_obj$data)
+  dose_time <- dose_data[[dose_obj$columns$time]]
+  is_bolus <- is_iv_bolus(dose_obj)
+  group_vars <- intersect(dose_obj$columns$groups$group_vars, names(intervals))
+  vapply(seq_len(nrow(intervals)), function(i) {
+    in_group <- Reduce(`&`, lapply(group_vars, function(g) dose_data[[g]] %in% intervals[[g]][i]), rep(TRUE, nrow(dose_data)))
+    start <- intervals$start[i]
+    any(in_group & is_bolus & dose_time == start) && any(in_group & dose_time < start)
+  }, logical(1))
+}
+
+#' Check which doses are IV bolus doses
+#'
+#' Doses with route `"intravascular"` and a duration of 0 (or missing), as in
+#' `assign_nca_impute()`.
+#'
+#' @param dose_obj `PKNCAdose` object
+#'
+#' @returns logical vector, one value per row in the dose data
+#'
+#' @keywords internal
+is_iv_bolus <- function(dose_obj) {
+  dose_df <- as.data.frame(dose_obj$data)
+  route <- dose_df[[dose_obj$columns$route]]
+  duration <- dose_df[[dose_obj$columns$duration]]
+  if(is.null(route)) return(rep(FALSE, nrow(dose_df)))
+  if(is.null(duration)) duration <- rep(0, nrow(dose_df))
+  !is.na(route) & route == "intravascular" & (is.na(duration) | duration == 0)
+}
+
+#' Select NCA intervals from the dosing schedule, including dosing intervals
+#' skipped by PKNCA
+#'
+#' Selects the intervals for each group in the same way as `PKNCA::PKNCAdata()`
+#' does when no intervals are given (using `PKNCA::choose.auc.intervals()`).
 #' For groups with multiple doses, PKNCA only selects a dosing interval when a
 #' concentration was measured exactly at both dose times, and the interval
 #' after the last dose only when a concentration was measured exactly at the
 #' last dose time + tau. So when the trough sample was drawn slightly late or
-#' early, the dosing interval is not analyzed at all. This function adds those
+#' early, the dosing interval is not analyzed at all (and if that is the case
+#' for all groups, `PKNCA::PKNCAdata()` fails). This function adds those
 #' dosing intervals (with `auclast`, `cmax` and `tmax`, as PKNCA does) when
 #' there is at least one concentration within the interval. The interval after
 #' the last dose uses tau as determined by PKNCA. When sampling stopped before
 #' the end of an interval, AUCtau is extrapolated using lambda-z (see
 #' [compute_interval_auc()]).
 #'
-#' @param comb_obj `PKNCAdata` object
+#' @param conc_obj `PKNCAconc` object
+#' @param dose_obj `PKNCAdose` object
+#' @param options PKNCA options, as passed to `PKNCA::PKNCAdata()`
 #' @param verbose verbose output?
 #'
-#' @returns `PKNCAdata` object with updated `intervals`
+#' @returns data.frame with intervals, including group columns, or `NULL` if
+#' no intervals could be selected.
 #'
 #' @keywords internal
-add_missing_dosing_intervals <- function(comb_obj, verbose = FALSE) {
-  if(!inherits(comb_obj$dose, "PKNCAdose")) return(comb_obj)
-  group_vars <- comb_obj$dose$columns$groups$group_vars
-  if(!all(group_vars %in% names(comb_obj$intervals))) return(comb_obj)
-  dose_data <- as.data.frame(comb_obj$dose$data)
-  dose_time <- comb_obj$dose$columns$time
-  conc_data <- as.data.frame(comb_obj$conc$data)
-  conc_data <- conc_data[!is.na(conc_data[[comb_obj$conc$columns$concentration]]), , drop = FALSE]
-  conc_time <- comb_obj$conc$columns$time
-  existing <- as.data.frame(comb_obj$intervals)
-  existing_keys <- do.call(paste, c(existing[c(group_vars, "start", "end")], sep = "\r"))
+get_dosing_intervals <- function(conc_obj, dose_obj, options = list(), verbose = FALSE) {
+  conc_groups <- conc_obj$columns$groups$group_vars
+  dose_groups <- intersect(dose_obj$columns$groups$group_vars, conc_groups)
+  conc_data <- as.data.frame(conc_obj$data)
+  conc_time <- conc_data[[conc_obj$columns$time]]
+  has_conc <- !is.na(conc_data[[conc_obj$columns$concentration]])
+  dose_data <- as.data.frame(dose_obj$data)
+  dose_time <- dose_data[[dose_obj$columns$time]]
 
-  dose_groups <- unique(dose_data[group_vars])
-  new_intervals <- list()
-  for(i in seq_len(nrow(dose_groups))) {
-    group <- dose_groups[i, , drop = FALSE]
-    in_group <- function(dat) {
-      Reduce(`&`, lapply(group_vars, function(g) dat[[g]] %in% group[[g]]))
+  groups <- unique(conc_data[conc_groups])
+  intervals <- list()
+  n_added <- 0
+  for(i in seq_len(nrow(groups))) {
+    group <- groups[i, , drop = FALSE]
+    in_group <- function(dat, group_vars) {
+      Reduce(`&`, lapply(group_vars, function(g) dat[[g]] %in% group[[g]]), rep(TRUE, nrow(dat)))
     }
-    time_dose <- sort(unique(dose_data[[dose_time]][in_group(dose_data)]))
-    if(length(time_dose) < 2) next
-    time_conc <- conc_data[[conc_time]][in_group(conc_data)]
-    tau <- PKNCA::find.tau(time_dose)
-    starts <- time_dose
-    ends <- c(time_dose[-1], max(time_dose) + tau)
-    for(j in seq_along(starts)) {
-      if(is.na(ends[j])) next
-      has_conc <- any(time_conc > starts[j] & time_conc < ends[j])
-      key <- do.call(paste, c(as.list(group), starts[j], ends[j], sep = "\r"))
-      if(has_conc && !key %in% existing_keys) {
-        new_intervals[[length(new_intervals) + 1]] <- cbind(
-          PKNCA::check.interval.specification(
-            data.frame(start = starts[j], end = ends[j], auclast = TRUE, cmax = TRUE, tmax = TRUE)
-          ),
-          group,
-          row.names = NULL
-        )
+    time_conc <- conc_time[in_group(conc_data, conc_groups)]
+    time_dose <- dose_time[in_group(dose_data, dose_groups)]
+    generated <- as.data.frame(PKNCA::choose.auc.intervals(time_conc, time_dose, options = options))
+    ## add dosing intervals PKNCA skipped
+    time_dose <- sort(unique(time_dose))
+    if(length(time_dose) >= 2) {
+      time_conc <- conc_time[in_group(conc_data, conc_groups) & has_conc]
+      tau <- PKNCA::find.tau(time_dose)
+      starts <- time_dose
+      ends <- c(time_dose[-1], max(time_dose) + tau)
+      for(j in seq_along(starts)) {
+        if(is.na(ends[j])) next
+        is_selected <- any(generated$start == starts[j] & generated$end == ends[j])
+        if(!is_selected && any(time_conc > starts[j] & time_conc < ends[j])) {
+          generated <- dplyr::bind_rows(
+            generated,
+            PKNCA::check.interval.specification(
+              data.frame(start = starts[j], end = ends[j], auclast = TRUE, cmax = TRUE, tmax = TRUE)
+            )
+          )
+          n_added <- n_added + 1
+        }
       }
     }
+    if(nrow(generated) > 0) {
+      generated <- generated[order(generated$start), , drop = FALSE]
+      intervals[[length(intervals) + 1]] <- cbind(group, generated, row.names = NULL)
+    }
   }
-  if(length(new_intervals) > 0) {
-    if(verbose)
-      cli::cli_alert_info(paste0("Adding ", length(new_intervals), " dosing interval(s) without a sample exactly at the dose time"))
-    comb_obj$intervals <- dplyr::bind_rows(comb_obj$intervals, new_intervals) |>
-      dplyr::arrange(dplyr::across(dplyr::all_of(c(group_vars, "start"))))
-  }
-  comb_obj
+  if(length(intervals) == 0) return(NULL)
+  if(verbose && n_added > 0)
+    cli::cli_alert_info(paste0("Adding ", n_added, " dosing interval(s) without a sample exactly at the dose time"))
+  out <- dplyr::bind_rows(intervals)
+  ## PKNCA requires all interval parameter columns to be logical
+  param_cols <- setdiff(intersect(names(PKNCA::get.interval.cols()), names(out)), c("start", "end"))
+  out[param_cols] <- lapply(out[param_cols], function(x) x %in% TRUE)
+  out
 }
 
 #' Check for each interval whether there is a measurable concentration after

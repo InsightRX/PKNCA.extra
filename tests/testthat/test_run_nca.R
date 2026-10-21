@@ -896,22 +896,82 @@ test_that("partial AUC spanning an internal dose is correct", {
   expect_equal(nca_data$auc_partial_2_20[nca_data$nca_start == 0], true_auc(2, 20), tolerance = 1e-4)
 })
 
-test_that("add_missing_dosing_intervals only adds dosing intervals PKNCA skipped", {
+test_that("pre-dose sample at a repeated IV bolus is not used as start of the next interval", {
+  ## IV bolus at 0 and 12 h, with a pre-dose (trough) sample exactly at 12 h
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  d <- tmp$data
+  d$ROUTE <- "IV"
+  pre <- d[d$EVID == 0 & d$TIME == 10, ]
+  pre$TIME <- 12
+  pre$DV <- with(tmp$subj, 100 / V * exp(-CL / V * 12))
+  d <- rbind(d, pre)
+  d <- d[order(d$ID, d$TIME, d$EVID == 0), ]
+  auc_0_12 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  auc_12_24 <- auc_0_12 * with(tmp$subj, 1 + exp(-CL / V * 12))
+  dict <- c(dict_late_boundary, route = "ROUTE")
+  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 12, end = 24.0001), post = list(), verbose = FALSE)
+  expect_equal(nca_data$auctau[nca_data$nca_start == 0], auc_0_12, tolerance = 1e-4)
+  expect_equal(nca_data$auctau[nca_data$nca_start == 12], auc_12_24, tolerance = 1e-4)
+  expect_equal(nca_data$auc_partial_12_24.0001[nca_data$nca_start == 12], auc_12_24, tolerance = 1e-4)
+  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 0, end = 24), post = list(), verbose = FALSE)
+  expect_equal(nca_data$auc_partial_0_24[nca_data$nca_start == 0], auc_0_12 + auc_12_24, tolerance = 1e-4)
+})
+
+test_that("start_c0_logslope imputation replaces the concentration at the start", {
+  res <- PKNCA_impute_method_start_c0_logslope(
+    conc = c(1, 8, 4, 2),
+    time = c(0, 1, 2, 3),
+    start = 0
+  )
+  expect_equal(res$time, c(0, 1, 2, 3))
+  expect_equal(res$conc, c(16, 8, 4, 2))
+})
+
+test_that("get_dosing_intervals adds dosing intervals PKNCA skipped", {
   tmp <- make_late_boundary_data(dose_times = c(0, 12))
   d <- tmp$data
   conc_obj <- PKNCA::PKNCAconc(d[d$EVID == 0, ], DV ~ TIME | ID)
   dose_obj <- PKNCA::PKNCAdose(d[d$EVID == 1, ], AMT ~ TIME | ID)
   obj <- PKNCA::PKNCAdata(conc_obj, dose_obj)
   expect_equal(unique(obj$intervals$start), 12)
-  obj2 <- add_missing_dosing_intervals(obj)
-  expect_equal(nrow(obj2$intervals), 10)
-  expect_equal(sort(unique(paste(obj2$intervals$start, obj2$intervals$end))), c("0 12", "12 24"))
-  expect_true(all(obj2$intervals$auclast[obj2$intervals$start == 0]))
-  ## nothing to add for single-dose data
+  intervals <- get_dosing_intervals(conc_obj, dose_obj)
+  expect_equal(nrow(intervals), 10)
+  expect_equal(sort(unique(paste(intervals$start, intervals$end))), c("0 12", "12 24"))
+  expect_true(all(intervals$auclast[intervals$start == 0]))
+  ## same as PKNCA for single-dose data
   dose_sd <- PKNCA::PKNCAdose(d[d$EVID == 1 & d$TIME == 0, ], AMT ~ TIME | ID)
   obj_sd <- PKNCA::PKNCAdata(conc_obj, dose_sd)
-  expect_equal(add_missing_dosing_intervals(obj_sd)$intervals, obj_sd$intervals)
+  intervals_sd <- get_dosing_intervals(conc_obj, dose_sd)
+  expect_equal(
+    as.data.frame(obj_sd$intervals)[, names(intervals_sd)],
+    intervals_sd,
+    ignore_attr = TRUE
+  )
 })
+
+test_that("auctau is computed when no subject has a sample at the dose times and sampling stops early", {
+  ## PKNCA would not select any interval here, and PKNCAdata() would fail
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  d <- tmp$data
+  d$ROUTE <- "IV"
+  d <- d[!(d$EVID == 0 & d$TIME == 24), ]
+  extra <- d[d$EVID == 0 & d$TIME == 16, ]
+  extra$TIME <- 20
+  extra$DV <- with(tmp$subj, 100 / V * (exp(-CL / V * 20) + exp(-CL / V * 8)))
+  d <- rbind(d, extra)
+  d <- d[order(d$ID, d$TIME, -d$EVID), ]
+  auc_0_12 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  auc_12_24 <- auc_0_12 * with(tmp$subj, 1 + exp(-CL / V * 12))
+  nca_data <- run_nca(
+    d,
+    dictionary = c(dict_late_boundary, route = "ROUTE"),
+    post = list(),
+    verbose = FALSE
+  )
+  expect_equal(nca_data$auctau[nca_data$nca_start == 0], auc_0_12, tolerance = 1e-4)
+  expect_equal(nca_data$auctau[nca_data$nca_start == 12], auc_12_24, tolerance = 1e-4)
+})
+
 
 test_that("nca_add_auctau prefers aucint columns over auclast", {
   out <- data.frame(

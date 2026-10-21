@@ -4,6 +4,7 @@
 \alias{nca_impute_methods}
 \alias{PKNCA_impute_method_start_obs_predose_conc0}
 \alias{PKNCA_impute_method_start_obs_c0_logslope}
+\alias{PKNCA_impute_method_start_c0_logslope}
 \title{Imputation methods for the concentration at the start of an NCA interval}
 \usage{
 PKNCA_impute_method_start_obs_predose_conc0(
@@ -18,6 +19,15 @@ PKNCA_impute_method_start_obs_predose_conc0(
 )
 
 PKNCA_impute_method_start_obs_c0_logslope(
+  conc,
+  time,
+  start = 0,
+  end = Inf,
+  ...,
+  options = list()
+)
+
+PKNCA_impute_method_start_c0_logslope(
   conc,
   time,
   start = 0,
@@ -62,4 +72,13 @@ concentrations after the dose (\code{PKNCA::pk.calc.c0()}, methods
 The function names follow the PKNCA convention
 (\verb{PKNCA_impute_method_<name>}) so they can be referred to as \verb{<name>} in
 the \code{impute} argument of \code{PKNCA::PKNCAdata()}.
+
+\itemize{
+\item \code{start_c0_logslope}: for IV bolus doses where a concentration observed at
+the time of the dose is the pre-dose concentration (e.g. the trough of
+the previous dosing interval). Always back-extrapolate C0 from the
+concentrations after the dose (\code{PKNCA::pk.calc.c0()}, methods
+\code{"logslope"}, \code{"c1"}), replacing the concentration at the interval start.
+Used by \code{run_nca()} when computing AUCtau and partial AUC.
+}
 }

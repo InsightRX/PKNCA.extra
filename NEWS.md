@@ -31,4 +31,11 @@
 * Partial AUC spanning one or more doses is computed per dosing interval part
   and summed, so the concentration just before a dose and the
   start-of-interval imputation after it are handled as for AUCtau (#19).
+* For a repeated IV bolus with a (pre-dose) sample at the time of the dose,
+  AUCtau and partial AUC back-extrapolate C0 (new imputation method
+  `start_c0_logslope`) instead of using the trough as the start of the next
+  dosing interval (#19).
+* For multi-dose data, `run_nca()` selects the dosing intervals itself (as
+  PKNCA does, plus the dosing intervals PKNCA skips), so AUCtau is also
+  available when no subject has samples exactly at the dose times (#19).
 * Initial CRAN submission.

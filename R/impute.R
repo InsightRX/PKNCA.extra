@@ -102,6 +102,41 @@ PKNCA_impute_method_start_obs_c0_logslope <- function(
   ret
 }
 
+#' @rdname nca_impute_methods
+#' @details
+#' - `start_c0_logslope`: for IV bolus doses where a concentration observed at
+#'   the time of the dose is the pre-dose concentration (e.g. the trough of
+#'   the previous dosing interval). Always back-extrapolate C0 from the
+#'   concentrations after the dose (`PKNCA::pk.calc.c0()`, methods
+#'   `"logslope"`, `"c1"`), replacing the concentration at the interval start.
+#'   Used by `run_nca()` when computing AUCtau and partial AUC.
+#' @export
+PKNCA_impute_method_start_c0_logslope <- function(
+  conc,
+  time,
+  start = 0,
+  end = Inf,
+  ...,
+  options = list()
+) {
+  ret <- data.frame(conc = conc, time = time)
+  ret <- ret[!(ret$time %in% start), , drop = FALSE]
+  c0 <- suppressWarnings(
+    PKNCA::pk.calc.c0(
+      conc = ret$conc,
+      time = ret$time,
+      time.dose = start,
+      method = c("logslope", "c1"),
+      check = FALSE
+    )
+  )
+  if(is.na(c0)) {
+    return(PKNCA_impute_method_start_obs_predose_conc0(conc, time, start, end, ...))
+  }
+  ret <- rbind(ret, data.frame(conc = c0, time = start))
+  ret[order(ret$time), , drop = FALSE]
+}
+
 #' Drop rows at the interval start that have a missing concentration, so they
 #' are treated as not observed.
 #' @noRd
@@ -203,6 +238,7 @@ expose_nca_impute_methods <- function() {
   env <- new.env(parent = emptyenv())
   env$PKNCA_impute_method_start_obs_predose_conc0 <- PKNCA_impute_method_start_obs_predose_conc0
   env$PKNCA_impute_method_start_obs_c0_logslope <- PKNCA_impute_method_start_obs_c0_logslope
+  env$PKNCA_impute_method_start_c0_logslope <- PKNCA_impute_method_start_c0_logslope
   attach(env, name = env_name, warn.conflicts = FALSE)
   function() {
     if(env_name %in% search()) detach(env_name, character.only = TRUE)

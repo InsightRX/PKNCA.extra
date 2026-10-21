@@ -633,22 +633,28 @@ run_nca <- function(
   if (!is.null(units)) pknca_data_args_base$units <- units
 
   if(!is.null(dose_obj)) {
-    comb_obj <- do.call(
-      PKNCA::PKNCAdata,
-      c(list(data.conc = conc_obj, data.dose = dose_obj), pknca_data_args_base)
-    )
+    pknca_data_args <- c(list(data.conc = conc_obj, data.dose = dose_obj), pknca_data_args_base)
+    ## For multi-dose data PKNCA only selects dosing intervals with a sample
+    ## exactly at both dose times. Select the intervals here instead, adding the
+    ## dosing intervals PKNCA would skip (e.g. when the trough was drawn late),
+    ## so AUCtau can be computed for them.
+    if(add_auctau) {
+      dosing_intervals <- get_dosing_intervals(
+        conc_obj,
+        dose_obj,
+        options = pknca_data_args_base$options,
+        verbose = verbose
+      )
+      if(!is.null(dosing_intervals)) {
+        pknca_data_args$intervals <- dosing_intervals
+      }
+    }
+    comb_obj <- do.call(PKNCA::PKNCAdata, pknca_data_args)
   } else {
     comb_obj <- do.call(
       PKNCA::PKNCAdata,
       c(list(data.conc = conc_obj, intervals = intervals), pknca_data_args_base)
     )
-  }
-
-  ## For multi-dose data PKNCA only selects dosing intervals with a sample
-  ## exactly at both dose times. Add the dosing intervals it skipped (e.g. when
-  ## the trough was drawn late), so AUCtau can be computed for them.
-  if(add_auctau) {
-    comb_obj <- add_missing_dosing_intervals(comb_obj, verbose = verbose)
   }
   
   if(isFALSE(user_impute)) {

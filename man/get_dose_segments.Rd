@@ -4,15 +4,19 @@
 \alias{get_dose_segments}
 \title{Get the dose segments within each interval that need a start correction}
 \usage{
-get_dose_segments(intervals, comb_obj)
+get_dose_segments(intervals, comb_obj, force_c0 = FALSE)
 }
 \arguments{
 \item{intervals}{data.frame with \code{.id}, \code{start}, \code{end} and group columns}
 
 \item{comb_obj}{\code{PKNCAdata} object}
+
+\item{force_c0}{add segments for IV bolus doses with a pre-dose
+concentration, see above.}
 }
 \value{
-data.frame with \code{.id}, \code{start} and \code{end} of each segment
+data.frame with \code{.id}, \code{start}, \code{end} and \code{impute} (\code{NA} unless
+a specific imputation method is needed) of each segment
 }
 \description{
 For each dose within \verb{[start, end)} of an interval without a usable
@@ -20,5 +24,14 @@ concentration at the time of the dose, returns the segment from the dose to
 the last measurable concentration before the next dose (or the end of the
 interval). Doses without a measurable concentration after them within the
 segment are skipped.
+}
+\details{
+A concentration at the time of a dose is the pre-dose concentration (as in
+PKNCA). For an IV bolus that is not the first dose of the group, this is
+the trough of the previous dosing interval, which is not the concentration
+after the dose. If \code{force_c0} is \code{TRUE}, such doses get a segment as well,
+with imputation method \code{start_c0_logslope} (back-extrapolation of C0,
+replacing the pre-dose concentration). For the first dose, a concentration
+at the time of the dose is kept as C0 (see \link{nca_impute_methods}).
 }
 \keyword{internal}
