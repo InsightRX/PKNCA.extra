@@ -870,6 +870,32 @@ test_that("auctau and partial AUC use C0 back-extrapolation at an IV bolus dose 
   expect_equal(second$auc_partial_12_24.0001, auc_12_24, tolerance = 1e-3)
 })
 
+test_that("partial AUC spanning an internal dose is correct", {
+  ## IV bolus at 0 and 12 h, no sample at the 12 h dose (drawn at 12+ h).
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  d <- tmp$data
+  d$ROUTE <- "IV"
+  conc_fun <- function(t, cl, v) {
+    sapply(t, function(tt) sum(100 / v * exp(-cl / v * (tt - c(0, 12)[c(0, 12) <= tt]))))
+  }
+  true_auc <- function(start, end) {
+    with(tmp$subj, mapply(function(cl, v) {
+      stats::integrate(function(t) conc_fun(t, cl, v), start, 12)$value +
+        stats::integrate(function(t) conc_fun(t, cl, v), 12, end)$value
+    }, CL, V))
+  }
+  dict <- c(dict_late_boundary, route = "ROUTE")
+  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 0, end = 24), post = list(), verbose = FALSE)
+  expect_equal(nca_data$auc_partial_0_24[nca_data$nca_start == 0], true_auc(0, 24), tolerance = 1e-4)
+  ## also without a sample at the first dose (C0 back-extrapolated)
+  d0 <- d[!(d$EVID == 0 & d$TIME == 0), ]
+  nca_data <- run_nca(d0, dictionary = dict, partial_auc = data.frame(start = 0, end = 24), post = list(), verbose = FALSE)
+  expect_equal(nca_data$auc_partial_0_24[nca_data$nca_start == 0], true_auc(0, 24), tolerance = 1e-4)
+  ## not starting or ending at a dose
+  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 2, end = 20), post = list(), verbose = FALSE)
+  expect_equal(nca_data$auc_partial_2_20[nca_data$nca_start == 0], true_auc(2, 20), tolerance = 1e-4)
+})
+
 test_that("add_missing_dosing_intervals only adds dosing intervals PKNCA skipped", {
   tmp <- make_late_boundary_data(dose_times = c(0, 12))
   d <- tmp$data

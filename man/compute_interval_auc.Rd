@@ -35,11 +35,16 @@ data) is used instead, which extrapolates from the last sample using
 lambda-z. If lambda-z could not be estimated, the AUC is \code{NA} and a warning
 is shown. Excluded samples are not considered usable.
 
+Intervals spanning one or more doses are split at those doses, and the AUC
+is computed for each part as described here, and summed. So the
+concentration just before a dose without a sample at that time is
+extrapolated using lambda-z of that part.
+
 PKNCA computes \verb{aucint.*} from the non-imputed concentrations, and the
 dose-aware variants don't take the route of administration into account.
-So for intervals starting at a dose without a usable sample at that time,
-the start is corrected: over the part from the start to the last measurable
-sample in the interval, \code{aucint} is replaced by \code{auclast}, which uses the
-start-of-interval imputation (e.g. C0 back-extrapolation for an IV bolus).
+So for a part starting at a dose without a usable sample at that time, the
+AUC from the dose to the last measurable sample in the part is corrected:
+\code{aucint} is replaced by \code{auclast}, which uses the start-of-interval
+imputation (e.g. C0 back-extrapolation for an IV bolus).
 }
 \keyword{internal}

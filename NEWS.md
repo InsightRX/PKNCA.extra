@@ -28,4 +28,7 @@
   that time use the start-of-interval imputation (e.g. C0 back-extrapolation
   for an IV bolus) for the part up to the last measurable sample, since
   PKNCA's `aucint.*` parameters ignore imputation (#19).
+* Partial AUC spanning one or more doses is computed per dosing interval part
+  and summed, so the concentration just before a dose and the
+  start-of-interval imputation after it are handled as for AUCtau (#19).
 * Initial CRAN submission.
