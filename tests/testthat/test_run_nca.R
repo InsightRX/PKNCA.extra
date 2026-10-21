@@ -645,3 +645,16 @@ test_that("run_nca works when column names contain special characters like paren
   expect_equal(nrow(nca_data), 3)
 })
 
+
+test_that("PKNCAconc errors other than non-unique times surface the PKNCA message", {
+  d <- data.frame(
+    ID = 1, TIME = c(0, 1, 2), DV = c(0, 5, 3),
+    EVID = c(1, 0, 0), AMT = c(100, 0, 0)
+  )
+  err <- expect_error(
+    run_nca(d, verbose = FALSE),
+    "An error occurred parsing the concentration data"
+  )
+  expect_false(grepl("argument is of length zero", conditionMessage(err)))
+  expect_false(grepl("not unique for each NCA", conditionMessage(err)))
+})
