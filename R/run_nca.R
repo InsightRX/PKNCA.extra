@@ -62,6 +62,9 @@
 #' concentration to the `start` and `end` of the interval. Any other parameters
 #' specified in the data.frame as column will also be calculated, e.g.
 #' `cmax=TRUE`. Currently, only a single row can be supplied as argument.
+#' For multi-dose data, PKNCA selects the intervals from the dosing schedule
+#' and the partial AUC is not computed (with a warning); use `groups` to
+#' analyze each dosing occasion separately.
 #' @param add_auctau compute AUCtau whenever relevant? TRUE (default) / FALSE. 
 #' For multi-dose PK data, this will add the parameter `auc_tau` to the NCA 
 #' output data as the AUC for each interval with a finite end. If a
@@ -198,7 +201,9 @@
 #' - `aucint.*` does not use the start-of-interval imputation (see
 #'   *Imputation*), e.g. C0 back-extrapolation for an IV bolus.
 #' - For multi-dose data, PKNCA only selects a dosing interval when a
-#'   concentration was measured exactly at both dose times.
+#'   concentration was measured exactly at both dose times. If no interval
+#'   can be selected for any subject, `run_nca()` stops with an error. Partial
+#'   AUC is not computed for multi-dose data.
 #'
 #' @section Unit strings and conversions:
 #'
@@ -652,9 +657,23 @@ run_nca <- function(
   if (!is.null(units)) pknca_data_args_base$units <- units
 
   if(!is.null(dose_obj)) {
-    comb_obj <- do.call(
-      PKNCA::PKNCAdata,
-      c(list(data.conc = conc_obj, data.dose = dose_obj), pknca_data_args_base)
+    comb_obj <- tryCatch(
+      do.call(
+        PKNCA::PKNCAdata,
+        c(list(data.conc = conc_obj, data.dose = dose_obj), pknca_data_args_base)
+      ),
+      error = function(e) {
+        ## PKNCA fails with this error when it could not select an interval
+        ## from the dosing schedule for any group
+        if(grepl("data_intervals", conditionMessage(e))) {
+          cli::cli_abort(c(
+            "No NCA intervals could be selected from the dosing schedule.",
+            "i" = "For multi-dose data, PKNCA only selects a dosing interval when concentrations were measured exactly at both dose times (and at the last dose time + tau for the interval after the last dose).",
+            "i" = "Use the `groups` argument to analyze each dosing occasion separately, e.g. when sampling times deviate from the dose times."
+          ))
+        }
+        stop(e)
+      }
     )
   } else {
     comb_obj <- do.call(
@@ -769,6 +788,13 @@ run_nca <- function(
   
   ## Bind partial AUC data together with overall NCA data
   name_partial_auc <- c()
+  if(!is.null(partial_auc) && nrow(res_partial) == 0) {
+    cli::cli_alert_warning(paste0(
+      "Partial AUC [", partial_auc$start, ", ", partial_auc$end, "] was not computed. ",
+      "For multi-dose data, PKNCA selects the intervals from the dosing schedule and `partial_auc` is not used. ",
+      "Use the `groups` argument to analyze each dosing occasion separately."
+    ))
+  }
   if(nrow(res_partial) > 0) {
     name_partial_auc <- paste0("auc_partial_", partial_auc$start, "_", partial_auc$end)
     res_partial[[name_partial_auc]] <- res_partial[[aucint_col]]

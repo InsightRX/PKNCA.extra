@@ -103,7 +103,10 @@ calculation. The partial AUC is computed as PKNCA's \code{aucint.last.dose}
 (\code{aucint.last} when no dose data is available), which interpolates the
 concentration to the \code{start} and \code{end} of the interval. Any other parameters
 specified in the data.frame as column will also be calculated, e.g.
-\code{cmax=TRUE}. Currently, only a single row can be supplied as argument.}
+\code{cmax=TRUE}. Currently, only a single row can be supplied as argument.
+For multi-dose data, PKNCA selects the intervals from the dosing schedule
+and the partial AUC is not computed (with a warning); use \code{groups} to
+analyze each dosing occasion separately.}
 
 \item{exclude_points}{list of points to exclude for entire NCA analysis,
 based on name(s) in the list that should match column name in the input
@@ -261,7 +264,9 @@ the end as zero, so the AUC is still underestimated.
 \item \verb{aucint.*} does not use the start-of-interval imputation (see
 \emph{Imputation}), e.g. C0 back-extrapolation for an IV bolus.
 \item For multi-dose data, PKNCA only selects a dosing interval when a
-concentration was measured exactly at both dose times.
+concentration was measured exactly at both dose times. If no interval
+can be selected for any subject, \code{run_nca()} stops with an error. Partial
+AUC is not computed for multi-dose data.
 }
 }
 

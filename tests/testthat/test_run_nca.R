@@ -744,3 +744,34 @@ test_that("nca_add_auctau uses the specified column", {
   expect_equal(nca_add_auctau(out, dictionary = list())$auctau, c(10, NA))
   expect_equal(nca_add_auctau(out, dictionary = list(), auc_col = "auc_other")$auctau, c(11, NA))
 })
+
+test_that("multi-dose data: clear error when no interval can be selected, warning for partial AUC", {
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  ## no sample at the dose times, and sampling stops before 24 h
+  d <- tmp$data[!(tmp$data$EVID == 0 & tmp$data$TIME == 24), ]
+  for(add_auctau in c(TRUE, FALSE)) {
+    expect_error(
+      suppressWarnings(run_nca(
+        d,
+        dictionary = dict_late_boundary,
+        partial_auc = data.frame(start = 0, end = 12),
+        add_auctau = add_auctau,
+        verbose = FALSE
+      )),
+      "No NCA intervals could be selected from the dosing schedule"
+    )
+  }
+  ## PKNCA selects 12-24 h, partial AUC is not used
+  expect_message(
+    nca_data <- run_nca(
+      tmp$data,
+      dictionary = dict_late_boundary,
+      partial_auc = data.frame(start = 0, end = 12),
+      add_auctau = FALSE,
+      post = list(),
+      verbose = FALSE
+    ),
+    "Partial AUC \\[0, 12\\] was not computed"
+  )
+  expect_false("auc_partial_0_12" %in% names(nca_data))
+})
