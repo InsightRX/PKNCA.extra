@@ -112,7 +112,7 @@ compute_interval_auc <- function(comb_obj, intervals, label = "AUC") {
   missing_groups <- setdiff(group_vars, names(intervals))
   if(length(missing_groups) > 0) {
     groups <- unique(as.data.frame(comb_obj$conc$data)[missing_groups])
-    intervals <- dplyr::cross_join(intervals, groups)
+    intervals <- merge(intervals, groups, by = NULL) # cartesian product
   }
 
   ## Extrapolate when the end of the interval can't be interpolated from usable
