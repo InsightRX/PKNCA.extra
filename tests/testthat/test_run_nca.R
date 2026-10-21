@@ -734,6 +734,60 @@ test_that("auctau for multi-dose data is correct when the trough sample is drawn
   expect_false(any(c("aucint_last_dose", "aucint_inf_obs_dose", ".auctau_aucint") %in% names(nca_data)))
 })
 
+test_that("partial AUC is computed for multi-dose data when the boundary sample is drawn after the next dose", {
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  nca_data <- run_nca(
+    tmp$data,
+    dictionary = dict_late_boundary,
+    partial_auc = data.frame(start = 0, end = 12),
+    post = list(),
+    verbose = FALSE
+  )
+  expect_true("auc_partial_0_12" %in% names(nca_data))
+  first <- nca_data[nca_data$nca_start == 0, ]
+  expect_equal(first$auc_partial_0_12, true_auc, tolerance = 1e-4)
+})
+
+test_that("auctau is NA with a warning when extrapolation to the next dose is not possible", {
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  ## too few points in the first dosing interval to estimate lambda-z
+  d <- tmp$data[!(tmp$data$EVID == 0 & tmp$data$TIME %in% c(0.5, 1, 2, 4, 6)), ]
+  expect_message(
+    nca_data <- run_nca(
+      d,
+      dictionary = dict_late_boundary,
+      post = list(),
+      verbose = FALSE
+    ),
+    "not computed for 5 interval"
+  )
+  expect_true(all(is.na(nca_data$auctau[nca_data$nca_start == 0])))
+  expect_true(all(!is.na(nca_data$auctau[nca_data$nca_start == 12])))
+})
+
+test_that("auctau uses observed concentration at the next dose without needing lambda-z", {
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  d <- tmp$data
+  ## add a pre-dose sample exactly at the time of the second dose
+  pre <- d[d$EVID == 0 & d$TIME == 10, ]
+  pre$TIME <- 12
+  pre$DV <- with(tmp$subj, 100 / V * exp(-CL / V * 12))
+  d <- rbind(d, pre)
+  d <- d[order(d$ID, d$TIME, d$EVID == 0), ]
+  ## remove points so lambda-z cannot be estimated
+  d <- d[!(d$EVID == 0 & d$TIME %in% c(0.5, 1, 2, 4, 6)), ]
+  nca_data <- run_nca(
+    d,
+    dictionary = dict_late_boundary,
+    post = list(),
+    verbose = FALSE
+  )
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  first <- nca_data[nca_data$nca_start == 0, ]
+  expect_equal(first$auctau, true_auc, tolerance = 1e-4)
+})
+
 test_that("add_missing_dosing_intervals only adds dosing intervals PKNCA skipped", {
   tmp <- make_late_boundary_data(dose_times = c(0, 12))
   d <- tmp$data

@@ -95,8 +95,10 @@ calculation. At least the AUC over the interval will be calculated for each
 row. Any other parameters specified in the data.frame as column will also be
 calculated, e.g. \code{cmax=TRUE}. Currently, only a single row can be supplied
 as argument. The partial AUC is computed as PKNCA's \code{aucint.last.dose}
-(or \code{aucint.last} when no dose data is available), which interpolates or
-extrapolates the concentration to the \code{start} and \code{end} of the interval.}
+(or \code{aucint.last} when no dose data is available), which interpolates the
+concentration to the \code{start} and \code{end} of the interval. When \code{end} is at
+the time of a dose without an observed concentration at that time,
+\code{aucint.inf.obs.dose} is used, see \code{\link[=compute_interval_auc]{compute_interval_auc()}}.}
 
 \item{exclude_points}{list of points to exclude for entire NCA analysis,
 based on name(s) in the list that should match column name in the input
@@ -159,8 +161,8 @@ as PKNCA's \code{aucint.last.dose} (or \code{aucint.last} when no dose data is
 available), which interpolates to the end of the interval. When the end of
 the interval is the time of the next dose, \code{aucint.inf.obs.dose} is used
 instead, which extrapolates to the next dose using lambda-z without using
-samples taken after that dose (falling back to \code{aucint.last.dose} if
-lambda-z could not be estimated). For multi-dose data, dosing intervals
+samples taken after that dose (\code{NA} with a warning if lambda-z could not be
+estimated). For multi-dose data, dosing intervals
 that PKNCA skips because no sample was taken exactly at a dose time are
 added as well. See \code{\link[=compute_auctau]{compute_auctau()}} and \code{\link[=nca_add_auctau]{nca_add_auctau()}}.}
 

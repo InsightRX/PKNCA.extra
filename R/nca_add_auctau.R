@@ -68,23 +68,85 @@ nca_add_auctau <- function(
   
 }
 
-#' Compute AUCtau for all bounded NCA intervals
+#' Compute the AUC over given intervals in a separate PKNCA pass
 #'
-#' Runs a separate PKNCA pass over all intervals with a finite end in the
-#' `PKNCAdata` object, requesting only interval AUCs. This avoids adding these
-#' parameters (and their dependencies, such as lambda-z) to the main NCA
-#' output.
+#' Runs a separate PKNCA pass over the given intervals, requesting only the
+#' interval AUC. This avoids adding these parameters (and their dependencies,
+#' such as lambda-z) to the main NCA output.
 #'
-#' With dose data, AUCtau is PKNCA's `aucint.last.dose`, which interpolates to
-#' the end of the interval. When the end of the interval is the time of the
-#' next dose, `aucint.inf.obs.dose` is used instead: it extrapolates from the
+#' With dose data, the AUC is PKNCA's `aucint.last.dose`, which interpolates to
+#' the start and end of the interval. When the end of the interval is at the
+#' time of a dose and there is no concentration observed at exactly that time,
+#' `aucint.last.dose` would extrapolate the concentration at the dose as zero.
+#' In that case `aucint.inf.obs.dose` is used instead: it extrapolates from the
 #' last sample before the dose using lambda-z, and does not use samples taken
-#' after that dose. If lambda-z could not be estimated, it falls back to
-#' `aucint.last.dose`. Without dose data, `aucint.last` is used.
+#' after the dose. If lambda-z could not be estimated, the AUC is `NA` and a
+#' warning is shown. Without dose data, `aucint.last` is used.
 #'
 #' Note: PKNCA's `aucint.*.dose` parameters do not take the route of
 #' administration into account at the start of the interval, so for IV bolus
 #' the start of the interval is handled by the imputation settings.
+#'
+#' @param comb_obj `PKNCAdata` object
+#' @param intervals data.frame with `start` and `end`, and optionally group
+#' columns. Rows without group columns apply to all groups.
+#' @param label name of the calculated AUC, used in warnings.
+#'
+#' @returns data.frame with group columns, `start`, `end` and `auc`, or
+#' `NULL` if there are no intervals or the calculation failed.
+#'
+#' @keywords internal
+compute_interval_auc <- function(comb_obj, intervals, label = "AUC") {
+  intervals <- as.data.frame(intervals)
+  if(nrow(intervals) == 0) return(NULL)
+  param_cols <- setdiff(intersect(names(PKNCA::get.interval.cols()), names(intervals)), c("start", "end"))
+  intervals[param_cols] <- FALSE
+  has_dose <- inherits(comb_obj$dose, "PKNCAdose")
+  if(has_dose) {
+    ## needs to be per group, to check dose and sample times
+    group_vars <- comb_obj$conc$columns$groups$group_vars
+    missing_groups <- setdiff(group_vars, names(intervals))
+    if(length(missing_groups) > 0) {
+      groups <- unique(as.data.frame(comb_obj$conc$data)[missing_groups])
+      intervals <- dplyr::cross_join(intervals, groups)
+    }
+    needs_extrap <- is_time_in_data(intervals, comb_obj$dose) &
+      !is_time_in_data(intervals, comb_obj$conc, observed = TRUE)
+    intervals$aucint.last.dose <- !needs_extrap
+    intervals$aucint.inf.obs.dose <- needs_extrap
+  } else {
+    intervals$aucint.last <- TRUE
+  }
+  auc_obj <- comb_obj
+  auc_obj$intervals <- PKNCA::check.interval.specification(unique(intervals))
+  res <- tryCatch(
+    suppressWarnings(PKNCA::pk.nca(auc_obj)),
+    error = function(e) {
+      cli::cli_alert_warning(paste0("Calculation of `", label, "` using `aucint` failed: ", conditionMessage(e)))
+      NULL
+    }
+  )
+  if(is.null(res)) return(NULL)
+  result <- as.data.frame(res$result)
+  value_col <- ifelse("PPSTRES" %in% names(result), "PPSTRES", "PPORRES")
+  keys <- c(intersect(comb_obj$conc$columns$groups$group_vars, names(result)), "start", "end")
+  result <- result[result$PPTESTCD %in% c("aucint.last.dose", "aucint.inf.obs.dose", "aucint.last"), ]
+  n_failed <- sum(result$PPTESTCD %in% "aucint.inf.obs.dose" & is.na(result[[value_col]]))
+  if(n_failed > 0) {
+    cli::cli_alert_warning(paste0(
+      "`", label, "` not computed for ", n_failed, " interval(s) ending at a dose without a sample at that time, ",
+      "because lambda-z could not be estimated for extrapolation to the dose."
+    ))
+  }
+  out <- result[c(keys, value_col)]
+  names(out)[names(out) == value_col] <- "auc"
+  out
+}
+
+#' Compute AUCtau for all bounded NCA intervals
+#'
+#' Computes the AUC for all intervals with a finite end in the `PKNCAdata`
+#' object, using [compute_interval_auc()].
 #'
 #' @param comb_obj `PKNCAdata` object
 #'
@@ -95,58 +157,49 @@ nca_add_auctau <- function(
 compute_auctau <- function(comb_obj) {
   intervals <- as.data.frame(comb_obj$intervals)
   intervals <- intervals[is.finite(intervals$end), , drop = FALSE]
-  if(nrow(intervals) == 0) return(NULL)
-  has_dose <- inherits(comb_obj$dose, "PKNCAdose")
-  param_cols <- setdiff(intersect(names(PKNCA::get.interval.cols()), names(intervals)), c("start", "end"))
-  intervals[param_cols] <- FALSE
-  if(has_dose) {
-    intervals$aucint.last.dose <- TRUE
-    intervals$aucint.inf.obs.dose <- is_end_at_dose(intervals, comb_obj)
-  } else {
-    intervals$aucint.last <- TRUE
+  out <- compute_interval_auc(comb_obj, intervals, label = "auctau")
+  if(!is.null(out)) {
+    names(out)[names(out) == "auc"] <- "auctau"
   }
-  auctau_obj <- comb_obj
-  auctau_obj$intervals <- unique(intervals)
-  res <- tryCatch(
-    suppressWarnings(PKNCA::pk.nca(auctau_obj)),
-    error = function(e) {
-      cli::cli_alert_warning(paste0("Calculation of `auctau` using `aucint` failed: ", conditionMessage(e)))
-      NULL
-    }
-  )
-  if(is.null(res)) return(NULL)
-  result <- as.data.frame(res$result)
-  value_col <- ifelse("PPSTRES" %in% names(result), "PPSTRES", "PPORRES")
-  keys <- c(intersect(comb_obj$conc$columns$groups$group_vars, names(result)), "start", "end")
-  auc_last <- result[result$PPTESTCD %in% c("aucint.last.dose", "aucint.last"), c(keys, value_col)]
-  auc_inf <- result[result$PPTESTCD %in% "aucint.inf.obs.dose", c(keys, value_col)]
-  names(auc_last)[names(auc_last) == value_col] <- "auc_last"
-  names(auc_inf)[names(auc_inf) == value_col] <- "auc_inf"
-  auc_last |>
-    dplyr::left_join(auc_inf, by = keys) |>
-    dplyr::mutate(auctau = dplyr::coalesce(.data$auc_inf, .data$auc_last)) |>
-    dplyr::select(dplyr::all_of(c(keys, "auctau"))) |>
-    as.data.frame()
+  out
 }
 
-#' Check for each interval whether its end is at the time of a dose
+#' Compute partial AUC for all subjects / groups
 #'
-#' @param intervals data.frame with intervals, optionally with group columns
+#' Computes the AUC over the `partial_auc` interval for every group in the
+#' `PKNCAdata` object, using [compute_interval_auc()]. Done separately from
+#' the main NCA, since for multi-dose data PKNCA selects the intervals from
+#' the dosing schedule.
+#'
 #' @param comb_obj `PKNCAdata` object
+#' @param partial_auc data.frame with `start` and `end`
+#'
+#' @returns data.frame with group columns, `start`, `end` and `auc`
+#'
+#' @keywords internal
+compute_partial_auc <- function(comb_obj, partial_auc) {
+  compute_interval_auc(comb_obj, partial_auc, label = "partial AUC")
+}
+
+#' Check for each interval whether its end matches a time in PKNCA data
+#'
+#' @param intervals data.frame with `end` and group columns
+#' @param obj `PKNCAconc` or `PKNCAdose` object
+#' @param observed only consider rows with a non-missing concentration?
 #'
 #' @returns logical vector, one value per row in `intervals`
 #'
 #' @keywords internal
-is_end_at_dose <- function(intervals, comb_obj) {
-  dose_data <- as.data.frame(comb_obj$dose$data)
-  dose_time <- comb_obj$dose$columns$time
-  group_vars <- intersect(comb_obj$dose$columns$groups$group_vars, names(intervals))
-  if(length(group_vars) == 0) {
-    return(intervals$end %in% dose_data[[dose_time]])
+is_time_in_data <- function(intervals, obj, observed = FALSE) {
+  dat <- as.data.frame(obj$data)
+  if(observed) {
+    dat <- dat[!is.na(dat[[obj$columns$concentration]]), , drop = FALSE]
   }
-  dose_keys <- do.call(paste, c(dose_data[c(group_vars, dose_time)], sep = "\r"))
-  interval_keys <- do.call(paste, c(intervals[c(group_vars, "end")], sep = "\r"))
-  interval_keys %in% dose_keys
+  time_col <- obj$columns$time
+  group_vars <- intersect(obj$columns$groups$group_vars, names(intervals))
+  data_keys <- do.call(paste, c(unname(dat[c(group_vars, time_col)]), sep = "\r"))
+  interval_keys <- do.call(paste, c(unname(intervals[c(group_vars, "end")]), sep = "\r"))
+  interval_keys %in% data_keys
 }
 
 #' Add dosing intervals skipped by PKNCA for multi-dose data

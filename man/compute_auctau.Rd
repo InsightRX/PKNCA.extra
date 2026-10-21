@@ -14,21 +14,7 @@ data.frame with group columns, \code{start}, \code{end} and \code{auctau}, or
 \code{NULL} if there are no bounded intervals or the calculation failed.
 }
 \description{
-Runs a separate PKNCA pass over all intervals with a finite end in the
-\code{PKNCAdata} object, requesting only interval AUCs. This avoids adding these
-parameters (and their dependencies, such as lambda-z) to the main NCA
-output.
-}
-\details{
-With dose data, AUCtau is PKNCA's \code{aucint.last.dose}, which interpolates to
-the end of the interval. When the end of the interval is the time of the
-next dose, \code{aucint.inf.obs.dose} is used instead: it extrapolates from the
-last sample before the dose using lambda-z, and does not use samples taken
-after that dose. If lambda-z could not be estimated, it falls back to
-\code{aucint.last.dose}. Without dose data, \code{aucint.last} is used.
-
-Note: PKNCA's \code{aucint.*.dose} parameters do not take the route of
-administration into account at the start of the interval, so for IV bolus
-the start of the interval is handled by the imputation settings.
+Computes the AUC for all intervals with a finite end in the \code{PKNCAdata}
+object, using \code{\link[=compute_interval_auc]{compute_interval_auc()}}.
 }
 \keyword{internal}

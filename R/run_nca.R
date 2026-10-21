@@ -58,8 +58,10 @@
 #' row. Any other parameters specified in the data.frame as column will also be 
 #' calculated, e.g. `cmax=TRUE`. Currently, only a single row can be supplied
 #' as argument. The partial AUC is computed as PKNCA's `aucint.last.dose`
-#' (or `aucint.last` when no dose data is available), which interpolates or
-#' extrapolates the concentration to the `start` and `end` of the interval.
+#' (or `aucint.last` when no dose data is available), which interpolates the
+#' concentration to the `start` and `end` of the interval. When `end` is at
+#' the time of a dose without an observed concentration at that time,
+#' `aucint.inf.obs.dose` is used, see [compute_interval_auc()].
 #' @param add_auctau compute AUCtau whenever relevant? TRUE (default) / FALSE. 
 #' For multi-dose PK data, this will add the parameter `auc_tau` to the NCA 
 #' output data as the AUC for each interval with a finite end. It is computed
@@ -67,8 +69,8 @@
 #' available), which interpolates to the end of the interval. When the end of
 #' the interval is the time of the next dose, `aucint.inf.obs.dose` is used
 #' instead, which extrapolates to the next dose using lambda-z without using
-#' samples taken after that dose (falling back to `aucint.last.dose` if
-#' lambda-z could not be estimated). For multi-dose data, dosing intervals
+#' samples taken after that dose (`NA` with a warning if lambda-z could not be
+#' estimated). For multi-dose data, dosing intervals
 #' that PKNCA skips because no sample was taken exactly at a dose time are
 #' added as well. See [compute_auctau()] and [nca_add_auctau()].
 #' @param include_cols Optional. Character vector of column names in `data` that
@@ -529,16 +531,9 @@ run_nca <- function(
     intervals <- PKNCA::PKNCA.options()$single.dose.aucs
   }
 
-  ## The partial AUC uses PKNCA's `aucint.*` parameter, which interpolates to
-  ## the interval boundaries. `auclast` only integrates up to the last sample at
-  ## or before `end`, so it is biased low when the boundary sample was drawn
-  ## late. With dose data, use the dose-aware variant so that samples after a
-  ## next dose are not used for interpolation.
-  aucint_param <- ifelse(is.null(dose_obj), "aucint.last", "aucint.last.dose")
-  aucint_col <- ifelse(no_dots, gsub("\\.", "_", aucint_param), aucint_param)
-
-  ## Add the intervals info for partial AUCs, where we're only going to compute
-  ## the AUC for the given time periods
+  ## Check the requested partial AUC. It is computed in a separate PKNCA pass
+  ## (see `compute_interval_auc()`), since for multi-dose data PKNCA selects
+  ## the intervals itself and would drop the requested interval.
   if(!is.null(partial_auc)) {
     if(!inherits(partial_auc, "data.frame") || !all(c("start", "end") %in% names(partial_auc))) {
       stop("Argument `partial_auc` not specified in correct format (`data.frame` with entries `start` and `end`)")
@@ -551,11 +546,6 @@ run_nca <- function(
     if(any(chk_duplicate)) {
       cli::cli_alert_warning(paste0("Partial AUC interval [", paste(partial_auc$start, partial_auc$end), "] already included in `intervals` argument and will be ignored"))
       partial_auc <- NULL
-    } else {
-      ## switch on `aucint` calculation. Every other parameter can stay off.
-      partial_auc[[aucint_param]] <- TRUE
-      intervals <- dplyr::bind_rows(intervals, partial_auc) %>%
-        dplyr::mutate(dplyr::across(dplyr::everything(), function(x) ifelse(is.na(x), FALSE, x)))
     }
   }
   
@@ -625,11 +615,15 @@ run_nca <- function(
     res$result$PPTESTCD <- gsub("\\.", "_", res$result$PPTESTCD)
   }
 
-  ## AUCtau is computed in a separate PKNCA pass, to avoid adding parameters
-  ## (and their dependencies) to the main NCA output.
+  ## AUCtau and partial AUC are computed in separate PKNCA passes, to avoid
+  ## adding parameters (and their dependencies) to the main NCA output.
   auctau_data <- NULL
   if(add_auctau) {
     auctau_data <- compute_auctau(comb_obj)
+  }
+  partial_data <- NULL
+  if(!is.null(partial_auc)) {
+    partial_data <- compute_partial_auc(comb_obj, partial_auc[, c("start", "end")])
   }
   
   ## Combine results and parse into output structure
@@ -654,13 +648,7 @@ run_nca <- function(
     tidyr::pivot_wider(
       names_from = "PPTESTCD", 
       values_from = value
-    ) %>%
-    dplyr::mutate(
-      # all columns with start/end matching partial_auc, and where other NCA params are NA
-      is_partial = is.na(.data$tmax) & 
-        (.data$start %in% partial_auc$start & .data$end %in% partial_auc$end)
     )
-  res_partial <- dplyr::filter(res_inf, .data$is_partial)
 
   ## Keep columns in data that are often used for grouping.
   ## User can also specify `groups` as argument, this is just for convenience.
@@ -679,7 +667,6 @@ run_nca <- function(
   cols_out <- c(cols_id_group, "start", "end", cols_pknca)
   joiner <- c(dictionary$subject_id, stats::setNames(groups, groups))
   nca_output <- res_inf %>%
-    dplyr::filter(!.data$is_partial) %>%
     dplyr::left_join(
       data %>%
         dplyr::group_by_at(c(dictionary$subject_id, cols_groups)) %>%
@@ -699,9 +686,10 @@ run_nca <- function(
   
   ## Bind partial AUC data together with overall NCA data
   name_partial_auc <- c()
-  if(nrow(res_partial) > 0) {
+  if(!is.null(partial_data) && nrow(partial_data) > 0) {
     name_partial_auc <- paste0("auc_partial_", partial_auc$start, "_", partial_auc$end)
-    res_partial[[name_partial_auc]] <- res_partial[[aucint_col]]
+    res_partial <- partial_data
+    res_partial[[name_partial_auc]] <- res_partial$auc
     res_partial <- res_partial %>%
       dplyr::select(!!joiner, !!name_partial_auc) %>%
       dplyr::left_join(
