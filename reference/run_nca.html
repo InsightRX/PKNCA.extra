@@ -11,7 +11,7 @@ rds file if path is specified."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">PKNCA.extra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9009</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9010</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,7 +96,12 @@ input / output data.</p></dd>
 <dt id="arg-dictionary">dictionary<a class="anchor" aria-label="anchor" href="#arg-dictionary"></a></dt>
 <dd><p>abridged data dictionary for the input dataset, specified
 as list object. Requires at least entries for <code>subject_id</code>, <code>time</code>, <code>conc</code>,
-<code>dose</code>. Optional entries are: <code>visit</code>.
+<code>dose</code>. Optional entries are: <code>visit</code>, <code>route</code>, and <code>duration</code>. <code>route</code>
+should be a column in the dose data with the route of administration (e.g.
+"IV", "intravenous", "oral"); intravenous routes are mapped to PKNCA's
+"intravascular", all others to "extravascular". <code>duration</code> should be a
+column with the dose duration (0 for bolus). Doses with an intravascular
+route and zero duration are treated as IV bolus (see <em>Imputation</em> below).
 If required entries are specified only partially, then default values
 (i.e. CDISC) nomenclature will be imputed for missing identifiers.</p></dd>
 
@@ -143,7 +148,10 @@ interval. Example:</p>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>   <span class="fu">c</span>(<span class="at">start =</span> <span class="dv">120</span>, <span class="at">end =</span> <span class="cn">Inf</span>)</span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>)</span></code></pre><p></p></div>
 <p>The <code>run_nca()</code> function will compute all parameters that are specified in
-<code>settings()</code> or in the default settings.</p></dd>
+<code>settings()</code> or in the default settings.
+An <code>impute</code> column can be added to specify PKNCA imputation methods for
+the concentration at the interval start, which overrides the default
+imputation (see <em>Imputation</em> below).</p></dd>
 
 
 <dt id="arg-partial-auc">partial_auc<a class="anchor" aria-label="anchor" href="#arg-partial-auc"></a></dt>
@@ -288,6 +296,23 @@ info in the data. NCA can still compute AUC and Cmax etc, but parameters that
 require the dose such as CL, V, etc will be returned as NA. Can only be used
 for single dose, unless <code>groups</code> are used to separate the dosing occasions.</p></li>
 </ol></div>
+    <div class="section level2">
+    <h2 id="imputation">Imputation<a class="anchor" aria-label="anchor" href="#imputation"></a></h2>
+
+
+
+<p>Unless an <code>impute</code> column is specified in <code>intervals</code>, the concentration at
+the start of each NCA interval is handled as follows:</p><ul><li><p>An observed concentration at the interval start (e.g. a pre-dose trough
+at the start of a dosing interval, or an observed C0) is always used and
+never overwritten.</p></li>
+<li><p>Otherwise, for IV bolus doses, C0 is back-extrapolated using log-linear
+regression of the first two concentrations after the dose.</p></li>
+<li><p>Otherwise, the last pre-dose concentration is used if it was taken
+within 5% of the interval length before the interval start.</p></li>
+<li><p>Otherwise, a concentration of 0 is imputed.</p></li>
+</ul><p>See <code><a href="nca_impute_methods.html">PKNCA_impute_method_start_obs_predose_conc0()</a></code> and
+<code><a href="nca_impute_methods.html">PKNCA_impute_method_start_obs_c0_logslope()</a></code>.</p>
+    </div>
     <div class="section level2">
     <h2 id="unit-strings-and-conversions">Unit strings and conversions<a class="anchor" aria-label="anchor" href="#unit-strings-and-conversions"></a></h2>
 

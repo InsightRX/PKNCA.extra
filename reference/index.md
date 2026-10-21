@@ -61,6 +61,11 @@
 - [`nca_admiral`](https://insightrx.github.io/PKNCA.extra/reference/nca_admiral.md)
   : Example data for NCA
 
+- [`PKNCA_impute_method_start_obs_predose_conc0()`](https://insightrx.github.io/PKNCA.extra/reference/nca_impute_methods.md)
+  [`PKNCA_impute_method_start_obs_c0_logslope()`](https://insightrx.github.io/PKNCA.extra/reference/nca_impute_methods.md)
+  : Imputation methods for the concentration at the start of an NCA
+  interval
+
 - [`nca_post_accumulation()`](https://insightrx.github.io/PKNCA.extra/reference/nca_post_accumulation.md)
   : NCA post-processing function to calculate accumulation rate
 

@@ -58,9 +58,15 @@ run_nca(
 
   abridged data dictionary for the input dataset, specified as list
   object. Requires at least entries for `subject_id`, `time`, `conc`,
-  `dose`. Optional entries are: `visit`. If required entries are
-  specified only partially, then default values (i.e. CDISC)
-  nomenclature will be imputed for missing identifiers.
+  `dose`. Optional entries are: `visit`, `route`, and `duration`.
+  `route` should be a column in the dose data with the route of
+  administration (e.g. "IV", "intravenous", "oral"); intravenous routes
+  are mapped to PKNCA's "intravascular", all others to "extravascular".
+  `duration` should be a column with the dose duration (0 for bolus).
+  Doses with an intravascular route and zero duration are treated as IV
+  bolus (see *Imputation* below). If required entries are specified only
+  partially, then default values (i.e. CDISC) nomenclature will be
+  imputed for missing identifiers.
 
 - settings:
 
@@ -109,7 +115,10 @@ run_nca(
       )
 
   The `run_nca()` function will compute all parameters that are
-  specified in `settings()` or in the default settings.
+  specified in `settings()` or in the default settings. An `impute`
+  column can be added to specify PKNCA imputation methods for the
+  concentration at the interval start, which overrides the default
+  imputation (see *Imputation* below).
 
 - partial_auc:
 
@@ -270,6 +279,28 @@ the NCA:
     parameters that require the dose such as CL, V, etc will be returned
     as NA. Can only be used for single dose, unless `groups` are used to
     separate the dosing occasions.
+
+## Imputation
+
+Unless an `impute` column is specified in `intervals`, the concentration
+at the start of each NCA interval is handled as follows:
+
+- An observed concentration at the interval start (e.g. a pre-dose
+  trough at the start of a dosing interval, or an observed C0) is always
+  used and never overwritten.
+
+- Otherwise, for IV bolus doses, C0 is back-extrapolated using
+  log-linear regression of the first two concentrations after the dose.
+
+- Otherwise, the last pre-dose concentration is used if it was taken
+  within 5% of the interval length before the interval start.
+
+- Otherwise, a concentration of 0 is imputed.
+
+See
+[`PKNCA_impute_method_start_obs_predose_conc0()`](https://insightrx.github.io/PKNCA.extra/reference/nca_impute_methods.md)
+and
+[`PKNCA_impute_method_start_obs_c0_logslope()`](https://insightrx.github.io/PKNCA.extra/reference/nca_impute_methods.md).
 
 ## Unit strings and conversions
 
