@@ -54,23 +54,25 @@
 #' `settings()` or in the default settings.
 #' @param partial_auc a data.frame containing at least the `start` and `end`
 #' time for each row that specifies the start- and endtime for the partial AUC
-#' calculation. At least the AUC over the interval will be calculated for each 
-#' row. Any other parameters specified in the data.frame as column will also be 
-#' calculated, e.g. `cmax=TRUE`. Currently, only a single row can be supplied
-#' as argument. The partial AUC is computed as PKNCA's `aucint.last.dose`
+#' calculation. Only the AUC over the interval is reported; other columns such
+#' as NCA parameters or `impute` are ignored (with a warning), see
+#' [compute_partial_auc()]. Currently, only a single row can be supplied as
+#' argument. The partial AUC is computed as PKNCA's `aucint.last.dose`
 #' (or `aucint.last` when no dose data is available), which interpolates the
-#' concentration to the `start` and `end` of the interval. When `end` is at
-#' the time of a dose without an observed concentration at that time,
-#' `aucint.inf.obs.dose` is used, see [compute_interval_auc()].
+#' concentration to the `start` and `end` of the interval. When `end` cannot
+#' be interpolated (after the last measurable sample, or at the time of a dose
+#' without a sample at that time), `aucint.inf.obs.dose` (or `aucint.inf.obs`)
+#' is used to extrapolate using lambda-z, see [compute_interval_auc()].
 #' @param add_auctau compute AUCtau whenever relevant? TRUE (default) / FALSE. 
 #' For multi-dose PK data, this will add the parameter `auc_tau` to the NCA 
 #' output data as the AUC for each interval with a finite end. It is computed
 #' as PKNCA's `aucint.last.dose` (or `aucint.last` when no dose data is
 #' available), which interpolates to the end of the interval. When the end of
-#' the interval is the time of the next dose, `aucint.inf.obs.dose` is used
-#' instead, which extrapolates to the next dose using lambda-z without using
-#' samples taken after that dose (`NA` with a warning if lambda-z could not be
-#' estimated). For multi-dose data, dosing intervals
+#' the interval cannot be interpolated (after the last measurable sample, or
+#' at the time of the next dose without a sample at that time),
+#' `aucint.inf.obs.dose` (or `aucint.inf.obs`) is used instead, which
+#' extrapolates using lambda-z without using samples taken after a dose (`NA`
+#' with a warning if lambda-z could not be estimated). For multi-dose data, dosing intervals
 #' that PKNCA skips because no sample was taken exactly at a dose time are
 #' added as well. See [compute_auctau()] and [nca_add_auctau()].
 #' @param include_cols Optional. Character vector of column names in `data` that
@@ -623,7 +625,7 @@ run_nca <- function(
   }
   partial_data <- NULL
   if(!is.null(partial_auc)) {
-    partial_data <- compute_partial_auc(comb_obj, partial_auc[, c("start", "end")])
+    partial_data <- compute_partial_auc(comb_obj, partial_auc)
   }
   
   ## Combine results and parse into output structure

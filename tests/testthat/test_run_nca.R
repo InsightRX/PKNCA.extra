@@ -788,6 +788,65 @@ test_that("auctau uses observed concentration at the next dose without needing l
   expect_equal(first$auctau, true_auc, tolerance = 1e-4)
 })
 
+test_that("partial AUC and auctau extrapolate when end is after the last sample", {
+  tmp <- make_late_boundary_data()
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  ## sampled only through 10 h
+  d <- tmp$data[tmp$data$EVID == 1 | tmp$data$TIME <= 10, ]
+  nca_data <- run_nca(
+    d,
+    dictionary = dict_late_boundary,
+    intervals = data.frame(start = 0, end = 12, auclast = TRUE),
+    partial_auc = data.frame(start = 0, end = 12.0001),
+    verbose = FALSE
+  )
+  expect_equal(nca_data$auctau, true_auc, tolerance = 1e-4)
+  expect_true(all(nca_data$auclast < true_auc))
+  ## without dose data
+  nca_nodose <- suppressWarnings(run_nca(
+    d[d$EVID == 0, c("ID", "TIME", "DV")],
+    dictionary = list(subject_id = "ID", time = "TIME", conc = "DV"),
+    partial_auc = data.frame(start = 0, end = 12),
+    verbose = FALSE
+  ))
+  expect_equal(nca_nodose$auc_partial_0_12, true_auc, tolerance = 1e-4)
+})
+
+test_that("excluded sample at end of interval is not used as boundary sample", {
+  tmp <- make_late_boundary_data()
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  d <- tmp$data[tmp$data$EVID == 1 | tmp$data$TIME <= 10, ]
+  ## add a (bad) sample exactly at 12 h, and exclude it
+  extra <- d[d$EVID == 0 & d$TIME == 10, ]
+  extra$TIME <- 12
+  extra$DV <- 100
+  d <- rbind(d, extra)
+  d <- d[order(d$ID, d$TIME, -d$EVID), ]
+  d$SAMPLEID <- paste(d$ID, d$TIME, d$EVID, sep = "_")
+  nca_data <- run_nca(
+    d,
+    dictionary = dict_late_boundary,
+    partial_auc = data.frame(start = 0, end = 12),
+    exclude_points = list(SAMPLEID = list(id = paste(1:5, 12, 0, sep = "_"), reason = "assay error")),
+    verbose = FALSE
+  )
+  expect_equal(nca_data$auc_partial_0_12, true_auc, tolerance = 1e-4)
+})
+
+test_that("partial AUC warns about ignored interval columns", {
+  dat <- nca_admiral; ids <- unique(dat$USUBJID)
+  dat <- dat[dat$USUBJID %in% ids[1:2], ]
+  expect_message(
+    nca_data <- run_nca(
+      dat,
+      partial_auc = data.frame(start = 0, end = 4, cmax = TRUE, impute = "start_conc0"),
+      verbose = FALSE
+    ),
+    "ignoring columns: cmax, impute"
+  )
+  expect_true("auc_partial_0_4" %in% names(nca_data))
+})
+
 test_that("add_missing_dosing_intervals only adds dosing intervals PKNCA skipped", {
   tmp <- make_late_boundary_data(dose_times = c(0, 12))
   d <- tmp$data

@@ -11,7 +11,8 @@ is_time_in_data(intervals, obj, observed = FALSE)
 
 \item{obj}{\code{PKNCAconc} or \code{PKNCAdose} object}
 
-\item{observed}{only consider rows with a non-missing concentration?}
+\item{observed}{only consider rows with a non-missing, non-excluded
+concentration?}
 }
 \value{
 logical vector, one value per row in \code{intervals}

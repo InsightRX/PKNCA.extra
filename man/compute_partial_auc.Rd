@@ -20,4 +20,10 @@ Computes the AUC over the \code{partial_auc} interval for every group in the
 the main NCA, since for multi-dose data PKNCA selects the intervals from
 the dosing schedule.
 }
+\details{
+Only the AUC is reported, so other NCA parameter columns in \code{partial_auc}
+are ignored (with a warning). An \code{impute} column is ignored as well: PKNCA
+computes the \verb{aucint.*} parameters from the full, non-imputed concentration
+data of the group, interpolating to the start and end of the interval.
+}
 \keyword{internal}

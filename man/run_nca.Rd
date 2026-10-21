@@ -91,14 +91,15 @@ The \code{run_nca()} function will compute all parameters that are specified in
 
 \item{partial_auc}{a data.frame containing at least the \code{start} and \code{end}
 time for each row that specifies the start- and endtime for the partial AUC
-calculation. At least the AUC over the interval will be calculated for each
-row. Any other parameters specified in the data.frame as column will also be
-calculated, e.g. \code{cmax=TRUE}. Currently, only a single row can be supplied
-as argument. The partial AUC is computed as PKNCA's \code{aucint.last.dose}
+calculation. Only the AUC over the interval is reported; other columns such
+as NCA parameters or \code{impute} are ignored (with a warning), see
+\code{\link[=compute_partial_auc]{compute_partial_auc()}}. Currently, only a single row can be supplied as
+argument. The partial AUC is computed as PKNCA's \code{aucint.last.dose}
 (or \code{aucint.last} when no dose data is available), which interpolates the
-concentration to the \code{start} and \code{end} of the interval. When \code{end} is at
-the time of a dose without an observed concentration at that time,
-\code{aucint.inf.obs.dose} is used, see \code{\link[=compute_interval_auc]{compute_interval_auc()}}.}
+concentration to the \code{start} and \code{end} of the interval. When \code{end} cannot
+be interpolated (after the last measurable sample, or at the time of a dose
+without a sample at that time), \code{aucint.inf.obs.dose} (or \code{aucint.inf.obs})
+is used to extrapolate using lambda-z, see \code{\link[=compute_interval_auc]{compute_interval_auc()}}.}
 
 \item{exclude_points}{list of points to exclude for entire NCA analysis,
 based on name(s) in the list that should match column name in the input
@@ -159,10 +160,11 @@ For multi-dose PK data, this will add the parameter \code{auc_tau} to the NCA
 output data as the AUC for each interval with a finite end. It is computed
 as PKNCA's \code{aucint.last.dose} (or \code{aucint.last} when no dose data is
 available), which interpolates to the end of the interval. When the end of
-the interval is the time of the next dose, \code{aucint.inf.obs.dose} is used
-instead, which extrapolates to the next dose using lambda-z without using
-samples taken after that dose (\code{NA} with a warning if lambda-z could not be
-estimated). For multi-dose data, dosing intervals
+the interval cannot be interpolated (after the last measurable sample, or
+at the time of the next dose without a sample at that time),
+\code{aucint.inf.obs.dose} (or \code{aucint.inf.obs}) is used instead, which
+extrapolates using lambda-z without using samples taken after a dose (\code{NA}
+with a warning if lambda-z could not be estimated). For multi-dose data, dosing intervals
 that PKNCA skips because no sample was taken exactly at a dose time are
 added as well. See \code{\link[=compute_auctau]{compute_auctau()}} and \code{\link[=nca_add_auctau]{nca_add_auctau()}}.}
 

@@ -25,13 +25,15 @@ such as lambda-z) to the main NCA output.
 }
 \details{
 With dose data, the AUC is PKNCA's \code{aucint.last.dose}, which interpolates to
-the start and end of the interval. When the end of the interval is at the
-time of a dose and there is no concentration observed at exactly that time,
-\code{aucint.last.dose} would extrapolate the concentration at the dose as zero.
-In that case \code{aucint.inf.obs.dose} is used instead: it extrapolates from the
-last sample before the dose using lambda-z, and does not use samples taken
-after the dose. If lambda-z could not be estimated, the AUC is \code{NA} and a
-warning is shown. Without dose data, \code{aucint.last} is used.
+the start and end of the interval (\code{aucint.last} without dose data). When
+there is no usable concentration at exactly the end of the interval, and
+the end cannot be interpolated because there is no measurable concentration
+after it, or because it is at the time of a dose (samples after a dose
+cannot be used), \code{aucint.last(.dose)} would set the concentration at the end
+to zero. In that case \code{aucint.inf.obs.dose} (\code{aucint.inf.obs} without dose
+data) is used instead, which extrapolates from the last sample using
+lambda-z. If lambda-z could not be estimated, the AUC is \code{NA} and a warning
+is shown. Excluded samples are not considered usable.
 
 Note: PKNCA's \code{aucint.*.dose} parameters do not take the route of
 administration into account at the start of the interval, so for IV bolus
