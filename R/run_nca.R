@@ -456,7 +456,7 @@ run_nca <- function(
     conc_obj <- do.call(PKNCA::PKNCAconc, pknca_conc_args)
   }, error = function(e) {
     msg <- ""
-    if(grep("not unique per group", e$message)) {
+    if (grepl("not unique per group", e$message)) {
       msg <- "It seems like concentration times are not unique for each NCA. Make sure you use the `groups` argument if concentration data were not collected following multiple dosing events."
     }
     cli::cli_abort(
