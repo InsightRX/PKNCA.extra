@@ -42,17 +42,21 @@ PKNCA_impute_method_start_obs_predose_conc0 <- function(
   if(any(ret$time %in% start)) {
     return(ret)
   }
+  ## Use the last pre-dose sample if it is within 5% of the interval length
+  ## before the interval start. Implemented here rather than using PKNCA's
+  ## `start_predose`, which compares absolute times against the window and
+  ## therefore accepts nearly any earlier sample when `start > 0`.
   if(!is.null(conc.group) && !is.null(time.group)) {
-    ret <- PKNCA::PKNCA_impute_method_start_predose(
-      conc = ret$conc,
-      time = ret$time,
-      start = start,
-      end = end,
-      conc.group = conc.group,
-      time.group = time.group,
-      options = options
-    )
-    ret <- as.data.frame(ret)
+    shift_end <- if(is.infinite(end)) max(c(ret$time, start)) else end
+    max_shift <- 0.05 * (shift_end - start)
+    mask_predose <- time.group < start & !is.na(conc.group)
+    if(any(mask_predose)) {
+      time_predose <- max(time.group[mask_predose])
+      if((start - time_predose) <= max_shift) {
+        conc_predose <- conc.group[mask_predose & time.group == time_predose][1]
+        ret <- rbind(data.frame(conc = conc_predose, time = start), ret)
+      }
+    }
   }
   if(!any(ret$time %in% start)) {
     ret <- PKNCA::PKNCA_impute_method_start_conc0(

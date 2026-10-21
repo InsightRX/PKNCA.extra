@@ -50,6 +50,16 @@ test_that("concentration of 0 is imputed at start when no sample is available", 
   expect_equal(res$auclast, expected)
 })
 
+test_that("distant earlier sample is not used as pre-dose concentration", {
+  d <- make_multidose_data()
+  d <- d[!(d$EVID == 0 & d$TIME %in% c(10, 12)), ]
+  res <- run_nca(d, dictionary = dict_evid, add_auctau = TRUE)
+  ## no sample within 0.6 h before t=12, so conc=0 is imputed at start
+  conc_data <- d[d$EVID == 0 & d$TIME > 12, ]
+  expected <- pknca_auclast(conc_data, start = 12, end = 24, impute = "start_conc0")
+  expect_equal(res$auclast[res$nca_start == 12], expected)
+})
+
 test_that("observed C0 for IV bolus is not overwritten", {
   tt <- c(0, 0.5, 1, 2, 4, 6, 8, 12)
   d <- rbind(
@@ -133,6 +143,27 @@ test_that("start_obs_predose_conc0 imputation method", {
   )
   expect_equal(out$conc, c(2, 5, 3))
   expect_equal(out$time, c(12, 13, 14))
+
+  ## pre-dose sample outside the 5% window (0.6 h for 12-24 h) is not used,
+  ## also when the interval does not start at time 0
+  out <- PKNCA_impute_method_start_obs_predose_conc0(
+    conc = c(5, 3), time = c(13, 14), start = 12, end = 24,
+    conc.group = c(0, 5, 3, 2, 5, 3), time.group = c(0, 1, 2, 8, 13, 14)
+  )
+  expect_equal(out$conc, c(0, 5, 3))
+  expect_equal(out$time, c(12, 13, 14))
+
+  ## window for open-ended interval is based on the last sample in the interval
+  out <- PKNCA_impute_method_start_obs_predose_conc0(
+    conc = c(5, 3), time = c(13, 32), start = 12, end = Inf,
+    conc.group = c(0, 5, 2, 5, 3), time.group = c(0, 1, 11, 13, 32)
+  )
+  expect_equal(out$conc, c(2, 5, 3))
+  out <- PKNCA_impute_method_start_obs_predose_conc0(
+    conc = c(5, 3), time = c(13, 32), start = 12, end = Inf,
+    conc.group = c(0, 5, 2, 5, 3), time.group = c(0, 1, 10.9, 13, 32)
+  )
+  expect_equal(out$conc, c(0, 5, 3))
 
   ## no sample at or just before start: impute 0
   out <- PKNCA_impute_method_start_obs_predose_conc0(
