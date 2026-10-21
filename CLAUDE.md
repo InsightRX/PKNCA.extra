@@ -6,6 +6,7 @@ with code in this repository.
 ## Common Commands
 
 ``` r
+
 devtools::load_all('.')   # Load package locally (always do this before testing manually)
 devtools::test()          # Run full test suite
 devtools::check()         # Full R CMD check
@@ -15,12 +16,14 @@ devtools::document()      # Regenerate roxygen2 docs
 Run a single test file:
 
 ``` r
+
 devtools::load_all('.'); testthat::test_file("tests/testthat/test_run_nca.R")
 ```
 
 Run a specific test by name:
 
 ``` r
+
 devtools::load_all('.'); testthat::test_file("tests/testthat/test_run_nca.R", filter = "units")
 ```
 
@@ -45,9 +48,9 @@ is:
     accepts multiple data formats: separate PK/dose data frames,
     NONMEM-style EVID column, dose column on PK rows, or PK-only. It
     normalizes these into
-    [`PKNCA::PKNCAconc`](http://humanpred.github.io/pknca/reference/PKNCAconc.md)
+    [`PKNCA::PKNCAconc`](https://humanpred.github.io/pknca/reference/PKNCAconc.html)
     /
-    [`PKNCA::PKNCAdata`](http://humanpred.github.io/pknca/reference/PKNCAdata.md)
+    [`PKNCA::PKNCAdata`](https://humanpred.github.io/pknca/reference/PKNCAdata.html)
     objects.
 2.  **Exclusion handling** —
     [`parse_exclusions()`](https://insightrx.github.io/PKNCA.extra/reference/parse_exclusions.md)
@@ -55,7 +58,7 @@ is:
     `exclude_lambda_z` / `include_lambda_z` map to `exclude_half.life` /
     `include_half.life` columns passed to `PKNCAconc()`.
 3.  **NCA execution** —
-    [`PKNCA::pk.nca()`](http://humanpred.github.io/pknca/reference/pk.nca.md)
+    [`PKNCA::pk.nca()`](https://humanpred.github.io/pknca/reference/pk.nca.html)
     runs the analysis. Settings are loaded from JSON spec files in
     `inst/md/` (default: `default.json`) and mapped to PKNCA parameter
     names by
@@ -73,15 +76,15 @@ is:
 
 ### Key files
 
-| File                          | Role                                                                        |
-|-------------------------------|-----------------------------------------------------------------------------|
-| `R/run_nca.R`                 | Main entry point (~713 lines); all NCA orchestration                        |
+| File | Role |
+|----|----|
+| `R/run_nca.R` | Main entry point (~713 lines); all NCA orchestration |
 | `R/get_nca_individual_fits.R` | Extracts per-point data with `used_in_fit` flag for terminal-phase plotting |
-| `R/create_nca_table.R`        | Wide/long output table generation                                           |
-| `R/parse_exclusions.R`        | Converts exclusion lists to boolean mask columns                            |
-| `R/nca_post.R`                | Accumulation & bioavailability post-processing                              |
-| `inst/md/default.json`        | Default NCA settings & parameter list                                       |
-| `inst/md/cdisc.json`          | CDISC parameter name mappings                                               |
+| `R/create_nca_table.R` | Wide/long output table generation |
+| `R/parse_exclusions.R` | Converts exclusion lists to boolean mask columns |
+| `R/nca_post.R` | Accumulation & bioavailability post-processing |
+| `inst/md/default.json` | Default NCA settings & parameter list |
+| `inst/md/cdisc.json` | CDISC parameter name mappings |
 
 ### Lambda-z point selection
 

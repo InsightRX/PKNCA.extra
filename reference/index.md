@@ -83,7 +83,7 @@
 
   Get the PKNCA options from a spec file, and parse into expected format
   for
-  [`PKNCA::PKNCA.options()`](http://humanpred.github.io/pknca/reference/PKNCA.options.md)
+  [`PKNCA::PKNCA.options()`](https://humanpred.github.io/pknca/reference/PKNCA.options.html)
 
 - [`read_spec_from_file()`](https://insightrx.github.io/PKNCA.extra/reference/read_spec_from_file.md)
   : Read specification from metadata file

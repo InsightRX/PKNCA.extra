@@ -153,19 +153,19 @@ run_nca(
 - units:
 
   optional units specification, passed to
-  [`PKNCA::PKNCAdata()`](http://humanpred.github.io/pknca/reference/PKNCAdata.md).
+  [`PKNCA::PKNCAdata()`](https://humanpred.github.io/pknca/reference/PKNCAdata.html).
   Either a named list with elements `concu`, `timeu`, `doseu`, and/or
   `amountu`, which are forwarded to
-  [`PKNCA::pknca_units_table()`](http://humanpred.github.io/pknca/reference/pknca_units_table.md)
+  [`PKNCA::pknca_units_table()`](https://humanpred.github.io/pknca/reference/pknca_units_table.html)
   internally; or a pre-built data frame from
-  [`PKNCA::pknca_units_table()`](http://humanpred.github.io/pknca/reference/pknca_units_table.md).
+  [`PKNCA::pknca_units_table()`](https://humanpred.github.io/pknca/reference/pknca_units_table.html).
   When provided, a `units` attribute containing a per-parameter units
   table is attached to the returned data frame.
 
   To automatically simplify derived units (e.g. V in `L`, CL in `L/h`),
   include `concu_pref` and/or `doseu_pref` in the list — these are
   forwarded to
-  [`PKNCA::pknca_units_table()`](http://humanpred.github.io/pknca/reference/pknca_units_table.md)
+  [`PKNCA::pknca_units_table()`](https://humanpred.github.io/pknca/reference/pknca_units_table.html)
   and use the `units` R package to compute conversion factors
   automatically. For example:
 
@@ -298,12 +298,12 @@ validation or normalisation, so:
 The `conversions` data.frame maps a raw PPORRESU string to a preferred
 display unit with a numeric conversion factor:
 
-|                     |                                                             |
-|---------------------|-------------------------------------------------------------|
-| Column              | Description                                                 |
-| `PPORRESU`          | Exact PPORRESU string as produced by PKNCA (case-sensitive) |
-| `PPSTRESU`          | Preferred output unit label                                 |
-| `conversion_factor` | Multiply the raw value by this to get the preferred value   |
+|  |  |
+|----|----|
+| Column | Description |
+| `PPORRESU` | Exact PPORRESU string as produced by PKNCA (case-sensitive) |
+| `PPSTRESU` | Preferred output unit label |
+| `conversion_factor` | Multiply the raw value by this to get the preferred value |
 
 PPORRESU strings for common NCA parameters follow these patterns (where
 the unit variables are exactly the strings you passed in `units`):

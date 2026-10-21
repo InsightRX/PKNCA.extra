@@ -14,7 +14,7 @@ remap_nca_output(data, mapping = NULL, exclude_unmapped = TRUE, keep = c())
 - data:
 
   output object from
-  [`PKNCA::pk.nca()`](http://humanpred.github.io/pknca/reference/pk.nca.md)
+  [`PKNCA::pk.nca()`](https://humanpred.github.io/pknca/reference/pk.nca.html)
 
 - mapping:
 
