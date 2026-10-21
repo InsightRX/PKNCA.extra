@@ -76,9 +76,12 @@ nca_add_auctau <- function(
 #' lambda-z. If lambda-z could not be estimated, the AUC is `NA` and a warning
 #' is shown. Excluded samples are not considered usable.
 #'
-#' Note: PKNCA's `aucint.*.dose` parameters do not take the route of
-#' administration into account at the start of the interval, so for IV bolus
-#' the start of the interval is handled by the imputation settings.
+#' PKNCA computes `aucint.*` from the non-imputed concentrations, and the
+#' dose-aware variants don't take the route of administration into account.
+#' So for intervals starting at a dose without a usable sample at that time,
+#' the start is corrected: over the part from the start to the last measurable
+#' sample in the interval, `aucint` is replaced by `auclast`, which uses the
+#' start-of-interval imputation (e.g. C0 back-extrapolation for an IV bolus).
 #'
 #' @param comb_obj `PKNCAdata` object
 #' @param intervals data.frame with `start` and `end`, and optionally group
@@ -118,30 +121,103 @@ compute_interval_auc <- function(comb_obj, intervals, label = "AUC") {
   needs_extrap <- is.finite(intervals$end) & !is_bracketed
   intervals[[param_last]] <- !needs_extrap
   intervals[[param_inf]] <- needs_extrap
-  auc_obj <- comb_obj
-  auc_obj$intervals <- PKNCA::check.interval.specification(unique(intervals))
-  res <- tryCatch(
-    suppressWarnings(PKNCA::pk.nca(auc_obj)),
-    error = function(e) {
-      cli::cli_alert_warning(paste0("Calculation of `", label, "` using `aucint` failed: ", conditionMessage(e)))
-      NULL
-    }
-  )
-  if(is.null(res)) return(NULL)
-  result <- as.data.frame(res$result)
-  value_col <- ifelse("PPSTRES" %in% names(result), "PPSTRES", "PPORRES")
-  keys <- c(intersect(comb_obj$conc$columns$groups$group_vars, names(result)), "start", "end")
-  result <- result[result$PPTESTCD %in% c(param_last, param_inf), ]
-  n_failed <- sum(result$PPTESTCD %in% param_inf & is.na(result[[value_col]]))
+  intervals$.id <- seq_len(nrow(intervals))
+
+  ## PKNCA computes `aucint.*` from the non-imputed concentrations, so the
+  ## start-of-interval imputation (e.g. C0 back-extrapolation for an IV bolus,
+  ## or the pre-dose concentration) is not used. For intervals starting at a
+  ## dose without a usable sample at that time, correct the start: over the
+  ## part from the start to the last measurable sample in the interval, replace
+  ## `aucint` by `auclast`, which uses the imputation.
+  t_split <- rep(NA_real_, nrow(intervals))
+  if(has_dose) {
+    is_split <- is_time_in_data(intervals, comb_obj$dose, column = "start") &
+      !is_time_in_data(intervals, comb_obj$conc, observed = TRUE, column = "start")
+    t_split[is_split] <- last_conc_time(intervals[is_split, , drop = FALSE], comb_obj$conc)
+  }
+  is_split <- !is.na(t_split)
+  part_start <- intervals[is_split, , drop = FALSE]
+  part_start$end <- t_split[is_split]
+  ## use the same `aucint` parameter as for the full interval, so the start is
+  ## handled identically
+  part_start$auclast <- rep(TRUE, nrow(part_start))
+
+  keys <- c(intersect(group_vars, names(intervals)), "start", "end")
+  res_int <- run_interval_nca(comb_obj, intervals, c(param_last, param_inf), keys, label)
+  res_start <- run_interval_nca(comb_obj, part_start, c(param_last, param_inf, "auclast"), keys, label)
+  if(is.null(res_int) || is.null(res_start)) return(NULL)
+  n_failed <- sum(res_int$PPTESTCD %in% param_inf & is.na(res_int$value))
   if(n_failed > 0) {
     cli::cli_alert_warning(paste0(
       "`", label, "` not computed for ", n_failed, " interval(s) ending after the last measurable sample ",
       "or at a dose without a sample at that time, because lambda-z could not be estimated for extrapolation."
     ))
   }
-  out <- result[c(keys, value_col)]
-  names(out)[names(out) == value_col] <- "auc"
+
+  ## Combine per interval
+  ## `param` is the parameter to take for each row in `intervals`
+  get_values <- function(part, res, param) {
+    part$PPTESTCD <- param[match(part$.id, intervals$.id)]
+    out <- merge(part[c(".id", keys, "PPTESTCD")], res, by = c(keys, "PPTESTCD"), all.x = TRUE)
+    out$value[match(intervals$.id, out$.id)]
+  }
+  param_int <- ifelse(needs_extrap, param_inf, param_last)
+  auc <- get_values(intervals, res_int, param_int)
+  correction <- rep(0, nrow(intervals))
+  correction[is_split] <- (
+    get_values(part_start, res_start, rep("auclast", nrow(intervals))) -
+      get_values(part_start, res_start, param_int)
+  )[is_split]
+  out <- intervals[keys]
+  out$auc <- auc + correction
+  rownames(out) <- NULL
   out
+}
+
+#' Run a separate PKNCA pass for the given intervals
+#'
+#' @param comb_obj `PKNCAdata` object
+#' @param intervals data.frame with intervals, including group columns and
+#' the requested parameters.
+#' @param params names of the parameters to return
+#' @param keys group, start and end columns
+#' @param label name of the calculated AUC, used in warnings.
+#'
+#' @returns data.frame with `keys`, `PPTESTCD` and `value`, or `NULL` if the
+#' calculation failed.
+#'
+#' @keywords internal
+run_interval_nca <- function(comb_obj, intervals, params, keys, label = "AUC") {
+  if(nrow(intervals) == 0) {
+    out <- intervals[keys]
+    out$PPTESTCD <- character(0)
+    out$value <- numeric(0)
+    return(out)
+  }
+  intervals$.id <- NULL
+  auc_obj <- comb_obj
+  auc_obj$intervals <- PKNCA::check.interval.specification(unique(intervals))
+  ## If imputation methods are specified per interval (column in intervals),
+  ## assign them for intervals that don't have one yet (e.g. partial AUC).
+  impute_col <- comb_obj$impute
+  if(length(impute_col) == 1 && !is.na(impute_col) &&
+     impute_col %in% names(comb_obj$intervals) &&
+     !impute_col %in% names(intervals)) {
+    auc_obj <- assign_nca_impute(auc_obj)
+  }
+  res <- tryCatch(
+    suppressWarnings(PKNCA::pk.nca(auc_obj)),
+    error = function(e) {
+      cli::cli_alert_warning(paste0("Calculation of `", label, "` failed: ", conditionMessage(e)))
+      NULL
+    }
+  )
+  if(is.null(res)) return(NULL)
+  result <- as.data.frame(res$result)
+  value_col <- ifelse("PPSTRES" %in% names(result), "PPSTRES", "PPORRES")
+  result <- result[result$PPTESTCD %in% params, , drop = FALSE]
+  result$value <- result[[value_col]]
+  result[c(keys, "PPTESTCD", "value")]
 }
 
 #' Compute AUCtau for all bounded NCA intervals
@@ -203,11 +279,12 @@ compute_partial_auc <- function(comb_obj, partial_auc) {
 #' @param obj `PKNCAconc` or `PKNCAdose` object
 #' @param observed only consider rows with a non-missing, non-excluded
 #' concentration?
+#' @param column column in `intervals` with the time to check
 #'
 #' @returns logical vector, one value per row in `intervals`
 #'
 #' @keywords internal
-is_time_in_data <- function(intervals, obj, observed = FALSE) {
+is_time_in_data <- function(intervals, obj, observed = FALSE, column = "end") {
   dat <- as.data.frame(obj$data)
   if(observed) {
     dat <- usable_conc_data(obj)
@@ -215,8 +292,29 @@ is_time_in_data <- function(intervals, obj, observed = FALSE) {
   time_col <- obj$columns$time
   group_vars <- intersect(obj$columns$groups$group_vars, names(intervals))
   data_keys <- do.call(paste, c(unname(dat[c(group_vars, time_col)]), sep = "\r"))
-  interval_keys <- do.call(paste, c(unname(intervals[c(group_vars, "end")]), sep = "\r"))
+  interval_keys <- do.call(paste, c(unname(intervals[c(group_vars, column)]), sep = "\r"))
   interval_keys %in% data_keys
+}
+
+#' Get the time of the last measurable concentration within each interval
+#'
+#' @param intervals data.frame with `start`, `end` and group columns
+#' @param obj `PKNCAconc` object
+#'
+#' @returns numeric vector with the time of the last usable concentration > 0
+#' in `(start, end]` for each row in `intervals`, `NA` if there is none.
+#'
+#' @keywords internal
+last_conc_time <- function(intervals, obj) {
+  dat <- usable_conc_data(obj)
+  dat <- dat[dat[[obj$columns$concentration]] > 0, , drop = FALSE]
+  time_col <- obj$columns$time
+  group_vars <- intersect(obj$columns$groups$group_vars, names(intervals))
+  vapply(seq_len(nrow(intervals)), function(i) {
+    in_group <- Reduce(`&`, lapply(group_vars, function(g) dat[[g]] %in% intervals[[g]][i]), TRUE)
+    times <- dat[[time_col]][in_group & dat[[time_col]] > intervals$start[i] & dat[[time_col]] <= intervals$end[i]]
+    if(length(times) == 0) NA_real_ else max(times)
+  }, numeric(1))
 }
 
 #' Add dosing intervals skipped by PKNCA for multi-dose data

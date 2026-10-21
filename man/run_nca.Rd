@@ -45,7 +45,12 @@ input / output data.}
 
 \item{dictionary}{abridged data dictionary for the input dataset, specified
 as list object. Requires at least entries for \code{subject_id}, \code{time}, \code{conc},
-\code{dose}. Optional entries are: \code{visit}.
+\code{dose}. Optional entries are: \code{visit}, \code{route}, and \code{duration}. \code{route}
+should be a column in the dose data with the route of administration (e.g.
+"IV", "intravenous", "oral"); intravenous routes are mapped to PKNCA's
+"intravascular", all others to "extravascular". \code{duration} should be a
+column with the dose duration (0 for bolus). Doses with an intravascular
+route and zero duration are treated as IV bolus (see \emph{Imputation} below).
 If required entries are specified only partially, then default values
 (i.e. CDISC) nomenclature will be imputed for missing identifiers.}
 
@@ -87,7 +92,10 @@ interval. Example:
 }\if{html}{\out{</div>}}
 
 The \code{run_nca()} function will compute all parameters that are specified in
-\code{settings()} or in the default settings.}
+\code{settings()} or in the default settings.
+An \code{impute} column can be added to specify PKNCA imputation methods for
+the concentration at the interval start, which overrides the default
+imputation (see \emph{Imputation} below).}
 
 \item{partial_auc}{a data.frame containing at least the \code{start} and \code{end}
 time for each row that specifies the start- and endtime for the partial AUC
@@ -225,6 +233,26 @@ require the dose such as CL, V, etc will be returned as NA. Can only be used
 for single dose, unless \code{groups} are used to separate the dosing occasions.
 }
 }
+\section{Imputation}{
+
+
+Unless an \code{impute} column is specified in \code{intervals}, the concentration at
+the start of each NCA interval is handled as follows:
+\itemize{
+\item An observed concentration at the interval start (e.g. a pre-dose trough
+at the start of a dosing interval, or an observed C0) is always used and
+never overwritten.
+\item Otherwise, for IV bolus doses, C0 is back-extrapolated using log-linear
+regression of the first two concentrations after the dose.
+\item Otherwise, the last pre-dose concentration is used if it was taken
+within 5\% of the interval length before the interval start.
+\item Otherwise, a concentration of 0 is imputed.
+}
+
+See \code{PKNCA_impute_method_start_obs_predose_conc0()} and
+\code{PKNCA_impute_method_start_obs_c0_logslope()}.
+}
+
 \section{Unit strings and conversions}{
 
 

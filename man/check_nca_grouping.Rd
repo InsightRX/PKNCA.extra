@@ -24,7 +24,12 @@ indicating PK an dosing data.}
 
 \item{dictionary}{abridged data dictionary for the input dataset, specified
 as list object. Requires at least entries for \code{subject_id}, \code{time}, \code{conc},
-\code{dose}. Optional entries are: \code{visit}.
+\code{dose}. Optional entries are: \code{visit}, \code{route}, and \code{duration}. \code{route}
+should be a column in the dose data with the route of administration (e.g.
+"IV", "intravenous", "oral"); intravenous routes are mapped to PKNCA's
+"intravascular", all others to "extravascular". \code{duration} should be a
+column with the dose duration (0 for bolus). Doses with an intravascular
+route and zero duration are treated as IV bolus (see \emph{Imputation} below).
 If required entries are specified only partially, then default values
 (i.e. CDISC) nomenclature will be imputed for missing identifiers.}
 

@@ -4,7 +4,7 @@
 \alias{is_time_in_data}
 \title{Check for each interval whether its end matches a time in PKNCA data}
 \usage{
-is_time_in_data(intervals, obj, observed = FALSE)
+is_time_in_data(intervals, obj, observed = FALSE, column = "end")
 }
 \arguments{
 \item{intervals}{data.frame with \code{end} and group columns}
@@ -13,6 +13,8 @@ is_time_in_data(intervals, obj, observed = FALSE)
 
 \item{observed}{only consider rows with a non-missing, non-excluded
 concentration?}
+
+\item{column}{column in \code{intervals} with the time to check}
 }
 \value{
 logical vector, one value per row in \code{intervals}

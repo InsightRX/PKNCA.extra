@@ -847,6 +847,29 @@ test_that("partial AUC warns about ignored interval columns", {
   expect_true("auc_partial_0_4" %in% names(nca_data))
 })
 
+test_that("auctau and partial AUC use C0 back-extrapolation at an IV bolus dose without a sample", {
+  ## With the route specified, the start of the 12-24 h interval (IV bolus, no
+  ## sample at 12 h) uses the back-extrapolated C0 from the imputation, and the
+  ## end of the 0-12 h interval is extrapolated to the dose.
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  d <- tmp$data
+  d$ROUTE <- "IV"
+  auc_0_12 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  auc_12_24 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)) * (1 + exp(-CL / V * 12)))
+  nca_data <- run_nca(
+    d,
+    dictionary = c(dict_late_boundary, route = "ROUTE"),
+    partial_auc = data.frame(start = 12, end = 24.0001),
+    post = list(),
+    verbose = FALSE
+  )
+  first <- nca_data[nca_data$nca_start == 0, ]
+  second <- nca_data[nca_data$nca_start == 12, ]
+  expect_equal(first$auctau, auc_0_12, tolerance = 1e-4)
+  expect_equal(second$auctau, auc_12_24, tolerance = 1e-4)
+  expect_equal(second$auc_partial_12_24.0001, auc_12_24, tolerance = 1e-3)
+})
+
 test_that("add_missing_dosing_intervals only adds dosing intervals PKNCA skipped", {
   tmp <- make_late_boundary_data(dose_times = c(0, 12))
   d <- tmp$data
@@ -902,8 +925,8 @@ test_that("final dosing interval is added and extrapolated when sampling stops b
   extra$DV <- with(tmp$subj, 100 / V * (exp(-CL / V * 19) + exp(-CL / V * 7)))
   d <- rbind(d, extra)
   d <- d[order(d$ID, d$TIME, -d$EVID), ]
-  ## (AUCtau over 12-24 h is not compared to the analytical value, since the
-  ## start of the interval after an IV bolus is not handled exactly, see #20)
+  ## (AUCtau over 12-24 h is not compared to the analytical value here, since
+  ## no route is specified, so C0 is not back-extrapolated for the IV bolus)
   nca_data <- run_nca(
     d,
     dictionary = dict_late_boundary,

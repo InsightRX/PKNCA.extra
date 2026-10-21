@@ -24,4 +24,8 @@
   available for multi-dose data, where PKNCA selects intervals from the dosing
   schedule (#19). Only the AUC is reported; other columns in `partial_auc`
   (NCA parameters, `impute`) are ignored with a warning.
+* Partial AUC and AUCtau for intervals starting at a dose without a sample at
+  that time use the start-of-interval imputation (e.g. C0 back-extrapolation
+  for an IV bolus) for the part up to the last measurable sample, since
+  PKNCA's `aucint.*` parameters ignore imputation (#19).
 * Initial CRAN submission.

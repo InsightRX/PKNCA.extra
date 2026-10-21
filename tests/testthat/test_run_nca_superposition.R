@@ -29,7 +29,7 @@ test_that("run_nca_superposition works with basic superposition", {
   
   expect_true(inherits(result, "data.frame"))
   expect_true(all(c("auclast", "cmax") %in% names(result)))
-  expect_equal(round(result$aucall, 2), c(47.27, 59.82))
+  expect_equal(round(result$aucall, 2), c(47.68, 60.47))
 })
 
 test_that("run_nca_superposition works with different dose levels", {
@@ -63,7 +63,7 @@ test_that("run_nca_superposition works with different dose levels", {
   
   expect_true(inherits(result, "data.frame"))
   expect_true(all(c("auclast", "cmax") %in% names(result)))
-  expect_equal(round(result$aucall, 2), c(43.6, 55.09))
+  expect_equal(round(result$aucall, 2), c(47.7, 60.49))
 })
 
 test_that("run_nca_superposition works with custom dose in regimen", {
@@ -98,7 +98,7 @@ test_that("run_nca_superposition works with custom dose in regimen", {
   
   expect_true(inherits(result, "data.frame"))
   expect_true(all(c("auclast", "cmax") %in% names(result)))
-  expect_equal(round(result$aucall, 2), c(94.55, 119.65))
+  expect_equal(round(result$aucall, 2), c(95.36, 120.95))
   
 })
 
@@ -135,7 +135,7 @@ test_that("run_nca_superposition works with groups", {
   
   expect_true(inherits(result, "data.frame"))
   expect_true(all(c("auclast", "cmax") %in% names(result)))
-  expect_equal(round(result$aucall, 2), c(43.6, 55.09))
+  expect_equal(round(result$aucall, 2), c(47.7, 60.49))
   expect_equal(result$group, c("A", "B"))
 })
 
