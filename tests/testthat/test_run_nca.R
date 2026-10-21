@@ -691,6 +691,14 @@ test_that("partial AUC interpolates to end of interval when boundary sample is l
   )
   expect_equal(nca_data$auc_partial_0_12, true_auc, tolerance = 1e-6)
   expect_false("aucint_last_dose" %in% names(nca_data))
+  ## also without dose data
+  nca_nodose <- suppressWarnings(run_nca(
+    tmp$data[tmp$data$EVID == 0, c("ID", "TIME", "DV")],
+    dictionary = list(subject_id = "ID", time = "TIME", conc = "DV"),
+    partial_auc = data.frame(start = 0, end = 12),
+    verbose = FALSE
+  ))
+  expect_equal(nca_nodose$auc_partial_0_12, true_auc, tolerance = 1e-6)
 })
 
 test_that("auctau interpolates to end of interval when boundary sample is late", {
@@ -705,322 +713,34 @@ test_that("auctau interpolates to end of interval when boundary sample is late",
   )
   expect_equal(nca_data$auctau, true_auc, tolerance = 1e-6)
   expect_true(all(nca_data$auclast < true_auc))
-  expect_false("aucint_last_dose" %in% names(nca_data))
+  expect_false(any(c("aucint_last_dose", ".auctau_auc") %in% names(nca_data)))
   expect_false("aucint_last_dose" %in% attr(nca_data, "parameters"))
 })
 
-test_that("auctau for multi-dose data is correct when the trough sample is drawn after the next dose", {
-  ## Doses at 0 and 12 h, IV bolus. The nominal 12 h sample is drawn after the
-  ## second dose, so PKNCA itself would not select the 0-12 h dosing interval.
-  ## Interpolating with that post-dose sample would overstate AUCtau, while
-  ## `auclast` stops at the 10 h sample and understates it.
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  nca_data <- run_nca(
-    tmp$data,
-    dictionary = dict_late_boundary,
-    post = list(),
-    verbose = FALSE
-  )
-  first <- nca_data[nca_data$nca_start == 0, ]
-  expect_equal(nrow(first), 5)
-  expect_equal(first$nca_end, rep(12, 5))
-  expect_equal(first$auctau, true_auc, tolerance = 1e-4)
-  expect_true(all(first$auclast < true_auc))
-  ## second dosing interval is still selected, and auctau is computed for it
-  second <- nca_data[nca_data$nca_start == 12, ]
-  expect_equal(second$nca_end, rep(24, 5))
-  expect_true(all(!is.na(second$auctau)))
-  expect_false(any(c("aucint_last_dose", "aucint_inf_obs_dose", ".auctau_aucint") %in% names(nca_data)))
-})
-
-test_that("partial AUC is computed for multi-dose data when the boundary sample is drawn after the next dose", {
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  nca_data <- run_nca(
-    tmp$data,
-    dictionary = dict_late_boundary,
-    partial_auc = data.frame(start = 0, end = 12),
-    post = list(),
-    verbose = FALSE
-  )
-  expect_true("auc_partial_0_12" %in% names(nca_data))
-  first <- nca_data[nca_data$nca_start == 0, ]
-  expect_equal(first$auc_partial_0_12, true_auc, tolerance = 1e-4)
-})
-
-test_that("auctau is NA with a warning when extrapolation to the next dose is not possible", {
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  ## too few points in the first dosing interval to estimate lambda-z
-  d <- tmp$data[!(tmp$data$EVID == 0 & tmp$data$TIME %in% c(0.5, 1, 2, 4, 6)), ]
-  expect_message(
-    nca_data <- run_nca(
-      d,
-      dictionary = dict_late_boundary,
-      post = list(),
-      verbose = FALSE
-    ),
-    "not computed for 5 interval"
-  )
-  expect_true(all(is.na(nca_data$auctau[nca_data$nca_start == 0])))
-  expect_true(all(!is.na(nca_data$auctau[nca_data$nca_start == 12])))
-})
-
-test_that("auctau uses observed concentration at the next dose without needing lambda-z", {
+test_that("auctau is auclast when there is a sample at the end of the interval", {
+  ## IV bolus at 0 and 12 h; PKNCA selects 12-24 h (sample at 24 h). The start
+  ## of the interval uses the back-extrapolated C0, which `aucint` would not.
   tmp <- make_late_boundary_data(dose_times = c(0, 12))
   d <- tmp$data
-  ## add a pre-dose sample exactly at the time of the second dose
-  pre <- d[d$EVID == 0 & d$TIME == 10, ]
-  pre$TIME <- 12
-  pre$DV <- with(tmp$subj, 100 / V * exp(-CL / V * 12))
-  d <- rbind(d, pre)
-  d <- d[order(d$ID, d$TIME, d$EVID == 0), ]
-  ## remove points so lambda-z cannot be estimated
-  d <- d[!(d$EVID == 0 & d$TIME %in% c(0.5, 1, 2, 4, 6)), ]
+  d$ROUTE <- "IV"
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)) * (1 + exp(-CL / V * 12)))
   nca_data <- run_nca(
     d,
-    dictionary = dict_late_boundary,
+    dictionary = c(dict_late_boundary, route = "ROUTE"),
     post = list(),
     verbose = FALSE
   )
-  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  first <- nca_data[nca_data$nca_start == 0, ]
-  expect_equal(first$auctau, true_auc, tolerance = 1e-4)
-})
-
-test_that("partial AUC and auctau extrapolate when end is after the last sample", {
-  tmp <- make_late_boundary_data()
-  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  ## sampled only through 10 h
-  d <- tmp$data[tmp$data$EVID == 1 | tmp$data$TIME <= 10, ]
-  nca_data <- run_nca(
-    d,
-    dictionary = dict_late_boundary,
-    intervals = data.frame(start = 0, end = 12, auclast = TRUE),
-    partial_auc = data.frame(start = 0, end = 12.0001),
-    verbose = FALSE
-  )
+  expect_equal(nca_data$nca_start, rep(12, 5))
+  expect_equal(nca_data$auctau, nca_data$auclast)
   expect_equal(nca_data$auctau, true_auc, tolerance = 1e-4)
-  expect_true(all(nca_data$auclast < true_auc))
-  ## without dose data
-  nca_nodose <- suppressWarnings(run_nca(
-    d[d$EVID == 0, c("ID", "TIME", "DV")],
-    dictionary = list(subject_id = "ID", time = "TIME", conc = "DV"),
-    partial_auc = data.frame(start = 0, end = 12),
-    verbose = FALSE
-  ))
-  expect_equal(nca_nodose$auc_partial_0_12, true_auc, tolerance = 1e-4)
 })
 
-test_that("excluded sample at end of interval is not used as boundary sample", {
-  tmp <- make_late_boundary_data()
-  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  d <- tmp$data[tmp$data$EVID == 1 | tmp$data$TIME <= 10, ]
-  ## add a (bad) sample exactly at 12 h, and exclude it
-  extra <- d[d$EVID == 0 & d$TIME == 10, ]
-  extra$TIME <- 12
-  extra$DV <- 100
-  d <- rbind(d, extra)
-  d <- d[order(d$ID, d$TIME, -d$EVID), ]
-  d$SAMPLEID <- paste(d$ID, d$TIME, d$EVID, sep = "_")
-  nca_data <- run_nca(
-    d,
-    dictionary = dict_late_boundary,
-    partial_auc = data.frame(start = 0, end = 12),
-    exclude_points = list(SAMPLEID = list(id = paste(1:5, 12, 0, sep = "_"), reason = "assay error")),
-    verbose = FALSE
-  )
-  expect_equal(nca_data$auc_partial_0_12, true_auc, tolerance = 1e-4)
-})
-
-test_that("partial AUC warns about ignored interval columns", {
-  dat <- nca_admiral; ids <- unique(dat$USUBJID)
-  dat <- dat[dat$USUBJID %in% ids[1:2], ]
-  expect_message(
-    nca_data <- run_nca(
-      dat,
-      partial_auc = data.frame(start = 0, end = 4, cmax = TRUE, impute = "start_conc0"),
-      verbose = FALSE
-    ),
-    "ignoring columns: cmax, impute"
-  )
-  expect_true("auc_partial_0_4" %in% names(nca_data))
-})
-
-test_that("auctau and partial AUC use C0 back-extrapolation at an IV bolus dose without a sample", {
-  ## With the route specified, the start of the 12-24 h interval (IV bolus, no
-  ## sample at 12 h) uses the back-extrapolated C0 from the imputation, and the
-  ## end of the 0-12 h interval is extrapolated to the dose.
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  d <- tmp$data
-  d$ROUTE <- "IV"
-  auc_0_12 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  auc_12_24 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)) * (1 + exp(-CL / V * 12)))
-  nca_data <- run_nca(
-    d,
-    dictionary = c(dict_late_boundary, route = "ROUTE"),
-    partial_auc = data.frame(start = 12, end = 24.0001),
-    post = list(),
-    verbose = FALSE
-  )
-  first <- nca_data[nca_data$nca_start == 0, ]
-  second <- nca_data[nca_data$nca_start == 12, ]
-  expect_equal(first$auctau, auc_0_12, tolerance = 1e-4)
-  expect_equal(second$auctau, auc_12_24, tolerance = 1e-4)
-  expect_equal(second$auc_partial_12_24.0001, auc_12_24, tolerance = 1e-3)
-})
-
-test_that("partial AUC spanning an internal dose is correct", {
-  ## IV bolus at 0 and 12 h, no sample at the 12 h dose (drawn at 12+ h).
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  d <- tmp$data
-  d$ROUTE <- "IV"
-  conc_fun <- function(t, cl, v) {
-    sapply(t, function(tt) sum(100 / v * exp(-cl / v * (tt - c(0, 12)[c(0, 12) <= tt]))))
-  }
-  true_auc <- function(start, end) {
-    with(tmp$subj, mapply(function(cl, v) {
-      stats::integrate(function(t) conc_fun(t, cl, v), start, 12)$value +
-        stats::integrate(function(t) conc_fun(t, cl, v), 12, end)$value
-    }, CL, V))
-  }
-  dict <- c(dict_late_boundary, route = "ROUTE")
-  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 0, end = 24), post = list(), verbose = FALSE)
-  expect_equal(nca_data$auc_partial_0_24[nca_data$nca_start == 0], true_auc(0, 24), tolerance = 1e-4)
-  ## also without a sample at the first dose (C0 back-extrapolated)
-  d0 <- d[!(d$EVID == 0 & d$TIME == 0), ]
-  nca_data <- run_nca(d0, dictionary = dict, partial_auc = data.frame(start = 0, end = 24), post = list(), verbose = FALSE)
-  expect_equal(nca_data$auc_partial_0_24[nca_data$nca_start == 0], true_auc(0, 24), tolerance = 1e-4)
-  ## not starting or ending at a dose
-  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 2, end = 20), post = list(), verbose = FALSE)
-  expect_equal(nca_data$auc_partial_2_20[nca_data$nca_start == 0], true_auc(2, 20), tolerance = 1e-4)
-})
-
-test_that("pre-dose sample at a repeated IV bolus is not used as start of the next interval", {
-  ## IV bolus at 0 and 12 h, with a pre-dose (trough) sample exactly at 12 h
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  d <- tmp$data
-  d$ROUTE <- "IV"
-  pre <- d[d$EVID == 0 & d$TIME == 10, ]
-  pre$TIME <- 12
-  pre$DV <- with(tmp$subj, 100 / V * exp(-CL / V * 12))
-  d <- rbind(d, pre)
-  d <- d[order(d$ID, d$TIME, d$EVID == 0), ]
-  auc_0_12 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  auc_12_24 <- auc_0_12 * with(tmp$subj, 1 + exp(-CL / V * 12))
-  dict <- c(dict_late_boundary, route = "ROUTE")
-  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 12, end = 24.0001), post = list(), verbose = FALSE)
-  expect_equal(nca_data$auctau[nca_data$nca_start == 0], auc_0_12, tolerance = 1e-4)
-  expect_equal(nca_data$auctau[nca_data$nca_start == 12], auc_12_24, tolerance = 1e-4)
-  expect_equal(nca_data$auc_partial_12_24.0001[nca_data$nca_start == 12], auc_12_24, tolerance = 1e-4)
-  nca_data <- run_nca(d, dictionary = dict, partial_auc = data.frame(start = 0, end = 24), post = list(), verbose = FALSE)
-  expect_equal(nca_data$auc_partial_0_24[nca_data$nca_start == 0], auc_0_12 + auc_12_24, tolerance = 1e-4)
-})
-
-test_that("start_c0_logslope imputation replaces the concentration at the start", {
-  res <- PKNCA_impute_method_start_c0_logslope(
-    conc = c(1, 8, 4, 2),
-    time = c(0, 1, 2, 3),
-    start = 0
-  )
-  expect_equal(res$time, c(0, 1, 2, 3))
-  expect_equal(res$conc, c(16, 8, 4, 2))
-})
-
-test_that("get_dosing_intervals adds dosing intervals PKNCA skipped", {
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  d <- tmp$data
-  conc_obj <- PKNCA::PKNCAconc(d[d$EVID == 0, ], DV ~ TIME | ID)
-  dose_obj <- PKNCA::PKNCAdose(d[d$EVID == 1, ], AMT ~ TIME | ID)
-  obj <- PKNCA::PKNCAdata(conc_obj, dose_obj)
-  expect_equal(unique(obj$intervals$start), 12)
-  intervals <- get_dosing_intervals(conc_obj, dose_obj)
-  expect_equal(nrow(intervals), 10)
-  expect_equal(sort(unique(paste(intervals$start, intervals$end))), c("0 12", "12 24"))
-  expect_true(all(intervals$auclast[intervals$start == 0]))
-  ## same as PKNCA for single-dose data
-  dose_sd <- PKNCA::PKNCAdose(d[d$EVID == 1 & d$TIME == 0, ], AMT ~ TIME | ID)
-  obj_sd <- PKNCA::PKNCAdata(conc_obj, dose_sd)
-  intervals_sd <- get_dosing_intervals(conc_obj, dose_sd)
-  expect_equal(
-    as.data.frame(obj_sd$intervals)[, names(intervals_sd)],
-    intervals_sd,
-    ignore_attr = TRUE
-  )
-})
-
-test_that("auctau is computed when no subject has a sample at the dose times and sampling stops early", {
-  ## PKNCA would not select any interval here, and PKNCAdata() would fail
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  d <- tmp$data
-  d$ROUTE <- "IV"
-  d <- d[!(d$EVID == 0 & d$TIME == 24), ]
-  extra <- d[d$EVID == 0 & d$TIME == 16, ]
-  extra$TIME <- 20
-  extra$DV <- with(tmp$subj, 100 / V * (exp(-CL / V * 20) + exp(-CL / V * 8)))
-  d <- rbind(d, extra)
-  d <- d[order(d$ID, d$TIME, -d$EVID), ]
-  auc_0_12 <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
-  auc_12_24 <- auc_0_12 * with(tmp$subj, 1 + exp(-CL / V * 12))
-  nca_data <- run_nca(
-    d,
-    dictionary = c(dict_late_boundary, route = "ROUTE"),
-    post = list(),
-    verbose = FALSE
-  )
-  expect_equal(nca_data$auctau[nca_data$nca_start == 0], auc_0_12, tolerance = 1e-4)
-  expect_equal(nca_data$auctau[nca_data$nca_start == 12], auc_12_24, tolerance = 1e-4)
-})
-
-
-test_that("nca_add_auctau prefers aucint columns over auclast", {
+test_that("nca_add_auctau uses the specified column", {
   out <- data.frame(
     nca_end = c(12, Inf),
     auclast = c(10, 20),
-    aucint_last_dose = c(11, NA)
+    auc_other = c(11, NA)
   )
-  res <- nca_add_auctau(out, dictionary = list())
-  expect_equal(res$auctau, c(11, NA))
-  ## no `auclast` fallback, since it is biased low
-  expect_message(
-    res <- nca_add_auctau(out[, c("nca_end", "auclast")], dictionary = list()),
-    "setting `auctau` to NA"
-  )
-  expect_equal(res$auctau, c(NA_real_, NA_real_))
-  ## column is added even if all values are NA
-  out$aucint_last_dose <- NA_real_
-  res <- nca_add_auctau(out, dictionary = list())
-  expect_equal(res$auctau, c(NA_real_, NA_real_))
-  ## not added without bounded intervals
-  res <- nca_add_auctau(out[2, ], dictionary = list())
-  expect_false("auctau" %in% names(res))
-})
-
-test_that("final dosing interval is added and extrapolated when sampling stops before its end", {
-  tmp <- make_late_boundary_data(dose_times = c(0, 12))
-  ## subjects 1-2 sampled through 22 h only (no 24 h sample)
-  d <- tmp$data
-  d$TIME[d$EVID == 0 & d$TIME == 24 & d$ID %in% 1:2] <- 22
-  d$DV[d$EVID == 0 & d$TIME == 22] <- with(
-    tmp$subj[1:2, ],
-    100 / V * (exp(-CL / V * 22) + exp(-CL / V * 10))
-  )
-  ## extra samples in second interval so lambda-z can be estimated
-  extra <- d[d$EVID == 0 & d$TIME == 16, ]
-  extra$TIME <- 19
-  extra$DV <- with(tmp$subj, 100 / V * (exp(-CL / V * 19) + exp(-CL / V * 7)))
-  d <- rbind(d, extra)
-  d <- d[order(d$ID, d$TIME, -d$EVID), ]
-  ## (AUCtau over 12-24 h is not compared to the analytical value here, since
-  ## no route is specified, so C0 is not back-extrapolated for the IV bolus)
-  nca_data <- run_nca(
-    d,
-    dictionary = dict_late_boundary,
-    post = list(),
-    verbose = FALSE
-  )
-  second <- nca_data[nca_data$nca_start == 12, ]
-  expect_equal(second$ID, 1:5)
-  expect_true(all(second$nca_end == 24))
-  expect_true(all(!is.na(second$auctau)))
+  expect_equal(nca_add_auctau(out, dictionary = list())$auctau, c(10, NA))
+  expect_equal(nca_add_auctau(out, dictionary = list(), auc_col = "auc_other")$auctau, c(11, NA))
 })

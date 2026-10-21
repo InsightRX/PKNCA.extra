@@ -99,15 +99,11 @@ imputation (see \emph{Imputation} below).}
 
 \item{partial_auc}{a data.frame containing at least the \code{start} and \code{end}
 time for each row that specifies the start- and endtime for the partial AUC
-calculation. Only the AUC over the interval is reported; other columns such
-as NCA parameters or \code{impute} are ignored (with a warning), see
-\code{\link[=compute_partial_auc]{compute_partial_auc()}}. Currently, only a single row can be supplied as
-argument. The partial AUC is computed as PKNCA's \code{aucint.last.dose}
-(or \code{aucint.last} when no dose data is available), which interpolates the
-concentration to the \code{start} and \code{end} of the interval. When \code{end} cannot
-be interpolated (after the last measurable sample, or at the time of a dose
-without a sample at that time), \code{aucint.inf.obs.dose} (or \code{aucint.inf.obs})
-is used to extrapolate using lambda-z, see \code{\link[=compute_interval_auc]{compute_interval_auc()}}.}
+calculation. The partial AUC is computed as PKNCA's \code{aucint.last.dose}
+(\code{aucint.last} when no dose data is available), which interpolates the
+concentration to the \code{start} and \code{end} of the interval. Any other parameters
+specified in the data.frame as column will also be calculated, e.g.
+\code{cmax=TRUE}. Currently, only a single row can be supplied as argument.}
 
 \item{exclude_points}{list of points to exclude for entire NCA analysis,
 based on name(s) in the list that should match column name in the input
@@ -165,16 +161,12 @@ output data.}
 
 \item{add_auctau}{compute AUCtau whenever relevant? TRUE (default) / FALSE.
 For multi-dose PK data, this will add the parameter \code{auc_tau} to the NCA
-output data as the AUC for each interval with a finite end. It is computed
-as PKNCA's \code{aucint.last.dose} (or \code{aucint.last} when no dose data is
-available), which interpolates to the end of the interval. When the end of
-the interval cannot be interpolated (after the last measurable sample, or
-at the time of the next dose without a sample at that time),
-\code{aucint.inf.obs.dose} (or \code{aucint.inf.obs}) is used instead, which
-extrapolates using lambda-z without using samples taken after a dose (\code{NA}
-with a warning if lambda-z could not be estimated). For multi-dose data, dosing intervals
-that PKNCA skips because no sample was taken exactly at a dose time are
-added as well. See \code{\link[=compute_auctau]{compute_auctau()}} and \code{\link[=nca_add_auctau]{nca_add_auctau()}}.}
+output data as the AUC for each interval with a finite end. If a
+concentration was measured exactly at the end of the interval, this is the
+AUClast for the interval. Otherwise (e.g. when the sample at the end of the
+interval was drawn late), it is PKNCA's \code{aucint.last.dose} (\code{aucint.last}
+without dose data), which interpolates the concentration to the end of the
+interval. See the \emph{AUCtau and partial AUC} section for limitations.}
 
 \item{post}{named list of lists, indicating which hard-coded
 post-processing steps to include, and options for each step.
@@ -251,6 +243,26 @@ within 5\% of the interval length before the interval start.
 
 See \code{PKNCA_impute_method_start_obs_predose_conc0()} and
 \code{PKNCA_impute_method_start_obs_c0_logslope()}.
+}
+
+\section{AUCtau and partial AUC}{
+
+
+\code{auclast} only integrates up to the last sample at or before the end of an
+interval, so it is biased low when the sample at the end of the interval
+was drawn late. Partial AUC and AUCtau therefore use PKNCA's
+\code{aucint.last.dose} when needed (see \code{partial_auc} and \code{add_auctau}). Known
+limitations, following PKNCA's behavior:
+\itemize{
+\item When there is no sample to interpolate the end of the interval from (the
+end is after the last measurable sample, or at the time of a next dose
+without a sample at that time), PKNCA extrapolates the concentration at
+the end as zero, so the AUC is still underestimated.
+\item \verb{aucint.*} does not use the start-of-interval imputation (see
+\emph{Imputation}), e.g. C0 back-extrapolation for an IV bolus.
+\item For multi-dose data, PKNCA only selects a dosing interval when a
+concentration was measured exactly at both dose times.
+}
 }
 
 \section{Unit strings and conversions}{
