@@ -658,3 +658,120 @@ test_that("PKNCAconc errors other than non-unique times surface the PKNCA messag
   expect_false(grepl("argument is of length zero", conditionMessage(err)))
   expect_false(grepl("not unique for each NCA", conditionMessage(err)))
 })
+
+## 1-cmt IV bolus data with closed-form AUC, where the sample at the end of the
+## interval (nominal 12 h) is drawn late.
+make_late_boundary_data <- function(dose_times = 0) {
+  subj <- data.frame(ID = 1:5, CL = c(4, 5, 6, 4.5, 5.5), V = c(18, 20, 22, 19, 21))
+  late <- c(0.25, 0.40, 0.15, 0.55, 0.30)
+  nom  <- c(0, 0.5, 1, 2, 4, 6, 8, 10, 12, 16, 24)
+  conc <- do.call(rbind, lapply(1:5, function(i) {
+    t <- nom
+    t[nom == 12] <- 12 + late[i]
+    k <- subj$CL[i] / subj$V[i]
+    dv <- sapply(t, function(tt) sum(100 / subj$V[i] * exp(-k * (tt - dose_times[dose_times <= tt]))))
+    data.frame(ID = i, TIME = t, DV = dv, AMT = 0, EVID = 0)
+  }))
+  dose <- expand.grid(ID = 1:5, TIME = dose_times)
+  dose <- data.frame(ID = dose$ID, TIME = dose$TIME, DV = 0, AMT = 100, EVID = 1)
+  d <- rbind(dose, conc)
+  d <- d[order(d$ID, d$TIME, -d$EVID), ]
+  list(data = d, subj = subj)
+}
+dict_late_boundary <- list(subject_id = "ID", time = "TIME", conc = "DV", dose = "AMT", evid = "EVID")
+
+test_that("partial AUC interpolates to end of interval when boundary sample is late", {
+  tmp <- make_late_boundary_data()
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  nca_data <- run_nca(
+    tmp$data,
+    dictionary = dict_late_boundary,
+    partial_auc = data.frame(start = 0, end = 12),
+    verbose = FALSE
+  )
+  expect_equal(nca_data$auc_partial_0_12, true_auc, tolerance = 1e-6)
+  expect_false("aucint_last_dose" %in% names(nca_data))
+  ## also without dose data
+  nca_nodose <- suppressWarnings(run_nca(
+    tmp$data[tmp$data$EVID == 0, c("ID", "TIME", "DV")],
+    dictionary = list(subject_id = "ID", time = "TIME", conc = "DV"),
+    partial_auc = data.frame(start = 0, end = 12),
+    verbose = FALSE
+  ))
+  expect_equal(nca_nodose$auc_partial_0_12, true_auc, tolerance = 1e-6)
+})
+
+test_that("auctau interpolates to end of interval when boundary sample is late", {
+  tmp <- make_late_boundary_data()
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)))
+  nca_data <- run_nca(
+    tmp$data,
+    dictionary = dict_late_boundary,
+    intervals = data.frame(start = 0, end = 12, auclast = TRUE),
+    add_auctau = TRUE,
+    verbose = FALSE
+  )
+  expect_equal(nca_data$auctau, true_auc, tolerance = 1e-6)
+  expect_true(all(nca_data$auclast < true_auc))
+  expect_false(any(c("aucint_last_dose", ".auctau_auc") %in% names(nca_data)))
+  expect_false("aucint_last_dose" %in% attr(nca_data, "parameters"))
+})
+
+test_that("auctau is auclast when there is a sample at the end of the interval", {
+  ## IV bolus at 0 and 12 h; PKNCA selects 12-24 h (sample at 24 h). The start
+  ## of the interval uses the back-extrapolated C0, which `aucint` would not.
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  d <- tmp$data
+  d$ROUTE <- "IV"
+  true_auc <- with(tmp$subj, 100 / CL * (1 - exp(-CL / V * 12)) * (1 + exp(-CL / V * 12)))
+  nca_data <- run_nca(
+    d,
+    dictionary = c(dict_late_boundary, route = "ROUTE"),
+    post = list(),
+    verbose = FALSE
+  )
+  expect_equal(nca_data$nca_start, rep(12, 5))
+  expect_equal(nca_data$auctau, nca_data$auclast)
+  expect_equal(nca_data$auctau, true_auc, tolerance = 1e-4)
+})
+
+test_that("nca_add_auctau uses the specified column", {
+  out <- data.frame(
+    nca_end = c(12, Inf),
+    auclast = c(10, 20),
+    auc_other = c(11, NA)
+  )
+  expect_equal(nca_add_auctau(out, dictionary = list())$auctau, c(10, NA))
+  expect_equal(nca_add_auctau(out, dictionary = list(), auc_col = "auc_other")$auctau, c(11, NA))
+})
+
+test_that("multi-dose data: clear error when no interval can be selected, warning for partial AUC", {
+  tmp <- make_late_boundary_data(dose_times = c(0, 12))
+  ## no sample at the dose times, and sampling stops before 24 h
+  d <- tmp$data[!(tmp$data$EVID == 0 & tmp$data$TIME == 24), ]
+  for(add_auctau in c(TRUE, FALSE)) {
+    expect_error(
+      suppressWarnings(run_nca(
+        d,
+        dictionary = dict_late_boundary,
+        partial_auc = data.frame(start = 0, end = 12),
+        add_auctau = add_auctau,
+        verbose = FALSE
+      )),
+      "No NCA intervals could be selected from the dosing schedule"
+    )
+  }
+  ## PKNCA selects 12-24 h, partial AUC is not used
+  expect_message(
+    nca_data <- run_nca(
+      tmp$data,
+      dictionary = dict_late_boundary,
+      partial_auc = data.frame(start = 0, end = 12),
+      add_auctau = FALSE,
+      post = list(),
+      verbose = FALSE
+    ),
+    "Partial AUC \\[0, 12\\] was not computed"
+  )
+  expect_false("auc_partial_0_12" %in% names(nca_data))
+})

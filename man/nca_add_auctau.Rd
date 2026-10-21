@@ -4,7 +4,7 @@
 \alias{nca_add_auctau}
 \title{Add AUCtau to the NCA output, if multi-dose PK data}
 \usage{
-nca_add_auctau(output, dictionary, verbose = FALSE)
+nca_add_auctau(output, dictionary, verbose = FALSE, auc_col = "auclast")
 }
 \arguments{
 \item{output}{PKNCA output object}
@@ -12,13 +12,17 @@ nca_add_auctau(output, dictionary, verbose = FALSE)
 \item{dictionary}{data dictionary}
 
 \item{verbose}{verbose output?}
+
+\item{auc_col}{name of the column with the AUC to use for \code{auctau}.}
 }
 \value{
 NCA output data with \code{auctau} added.
 }
 \description{
-Will copy \code{auclast} to \code{auctau} in the NCA output, for
-those intervals where the end of the interval is <Inf.
+Will copy \code{auclast} (or the column specified in \code{auc_col}) to \code{auctau} in
+the NCA output, for those intervals where the end of the interval is <Inf.
+\code{run_nca()} uses \code{aucint.last.dose} instead of \code{auclast} for intervals
+without a concentration measured exactly at the end of the interval.
 }
 \details{
 It will first check if the NCA was indeed multi-dose,
