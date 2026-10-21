@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">PKNCA.extra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9010</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9021</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,7 +33,11 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pkncaextra-development-version">PKNCA.extra (development version)<a class="anchor" aria-label="anchor" href="#pkncaextra-development-version"></a></h2>
-<ul><li>Initial CRAN submission.</li>
+<ul><li>
+<code>run_nca(partial_auc = ...)</code> now reports PKNCA’s <code>aucint.last.dose</code> (<code>aucint.last</code> without dose data) instead of <code>auclast</code>, interpolating to the end of the interval. AUCtau uses <code>aucint.last.dose</code> for intervals without a concentration measured exactly at the end of the interval, and <code>auclast</code> otherwise. Previously both were biased low when the sample at the end of the interval was drawn late. <code><a href="../reference/nca_add_auctau.html">nca_add_auctau()</a></code> gains an <code>auc_col</code> argument (#19).</li>
+<li>
+<code><a href="../reference/run_nca.html">run_nca()</a></code> gives a clear error when PKNCA cannot select any interval from the dosing schedule, and warns when <code>partial_auc</code> is not computed for multi-dose data (#19).</li>
+<li>Initial CRAN submission.</li>
 </ul></div>
   </main></div>
 

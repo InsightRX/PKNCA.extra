@@ -11,7 +11,7 @@ rds file if path is specified."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">PKNCA.extra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9010</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9021</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -157,10 +157,14 @@ imputation (see <em>Imputation</em> below).</p></dd>
 <dt id="arg-partial-auc">partial_auc<a class="anchor" aria-label="anchor" href="#arg-partial-auc"></a></dt>
 <dd><p>a data.frame containing at least the <code>start</code> and <code>end</code>
 time for each row that specifies the start- and endtime for the partial AUC
-calculation. At least the AUC_0-t (<code>auclast</code>) will be calculated for each
-row. Any other parameters specified in the data.frame as column will also be
-calculated, e.g. <code>cmax=TRUE</code>. Currently, only a single row can be supplied
-as argument.</p></dd>
+calculation. The partial AUC is computed as PKNCA's <code>aucint.last.dose</code>
+(<code>aucint.last</code> when no dose data is available), which interpolates the
+concentration to the <code>start</code> and <code>end</code> of the interval. Any other parameters
+specified in the data.frame as column will also be calculated, e.g.
+<code>cmax=TRUE</code>. Currently, only a single row can be supplied as argument.
+For multi-dose data, PKNCA selects the intervals from the dosing schedule
+and the partial AUC is not computed (with a warning); use <code>groups</code> to
+analyze each dosing occasion separately.</p></dd>
 
 
 <dt id="arg-exclude-points">exclude_points<a class="anchor" aria-label="anchor" href="#arg-exclude-points"></a></dt>
@@ -231,9 +235,12 @@ output data.</p></dd>
 <dt id="arg-add-auctau">add_auctau<a class="anchor" aria-label="anchor" href="#arg-add-auctau"></a></dt>
 <dd><p>compute AUCtau whenever relevant? TRUE (default) / FALSE.
 For multi-dose PK data, this will add the parameter <code>auc_tau</code> to the NCA
-output data as the AUC for each interval. In essence, it will just make a
-copy of the AUClast for the interval. See exact logic in function
-help page.</p></dd>
+output data as the AUC for each interval with a finite end. If a
+concentration was measured exactly at the end of the interval, this is the
+AUClast for the interval. Otherwise (e.g. when the sample at the end of the
+interval was drawn late), it is PKNCA's <code>aucint.last.dose</code> (<code>aucint.last</code>
+without dose data), which interpolates the concentration to the end of the
+interval. See the <em>AUCtau and partial AUC</em> section for limitations.</p></dd>
 
 
 <dt id="arg-post">post<a class="anchor" aria-label="anchor" href="#arg-post"></a></dt>
@@ -313,6 +320,28 @@ within 5% of the interval length before the interval start.</p></li>
 </ul><p>See <code><a href="nca_impute_methods.html">PKNCA_impute_method_start_obs_predose_conc0()</a></code> and
 <code><a href="nca_impute_methods.html">PKNCA_impute_method_start_obs_c0_logslope()</a></code>.</p>
     </div>
+    <div class="section level2">
+    <h2 id="auctau-and-partial-auc">AUCtau and partial AUC<a class="anchor" aria-label="anchor" href="#auctau-and-partial-auc"></a></h2>
+
+
+
+<p><code>auclast</code> only integrates up to the last sample at or before the end of an
+interval, so it is biased low when the sample at the end of the interval
+was drawn late. Partial AUC and AUCtau therefore use PKNCA's
+<code>aucint.last.dose</code> when needed (see <code>partial_auc</code> and <code>add_auctau</code>). Known
+limitations, following PKNCA's behavior:</p><ul><li><p>When there is no sample to interpolate the end of the interval from (the
+end is after the last measurable sample, or at the time of a next dose
+without a sample at that time), PKNCA extrapolates the concentration at
+the end as zero, so the AUC is still underestimated.</p></li>
+<li><p><code>aucint.*</code> does not use the start-of-interval imputation (see
+<em>Imputation</em>), e.g. C0 back-extrapolation for an IV bolus.</p></li>
+<li><p>For multi-dose data, PKNCA only selects an interval between two doses
+when concentrations were measured exactly at both dose times, and the
+interval after the last dose when a concentration was measured exactly
+at the last dose time + tau. If no interval
+can be selected for any subject, <code>run_nca()</code> stops with an error. Partial
+AUC is not computed for multi-dose data.</p></li>
+</ul></div>
     <div class="section level2">
     <h2 id="unit-strings-and-conversions">Unit strings and conversions<a class="anchor" aria-label="anchor" href="#unit-strings-and-conversions"></a></h2>
 

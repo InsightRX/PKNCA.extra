@@ -124,10 +124,14 @@ run_nca(
 
   a data.frame containing at least the `start` and `end` time for each
   row that specifies the start- and endtime for the partial AUC
-  calculation. At least the AUC_0-t (`auclast`) will be calculated for
-  each row. Any other parameters specified in the data.frame as column
-  will also be calculated, e.g. `cmax=TRUE`. Currently, only a single
-  row can be supplied as argument.
+  calculation. The partial AUC is computed as PKNCA's `aucint.last.dose`
+  (`aucint.last` when no dose data is available), which interpolates the
+  concentration to the `start` and `end` of the interval. Any other
+  parameters specified in the data.frame as column will also be
+  calculated, e.g. `cmax=TRUE`. Currently, only a single row can be
+  supplied as argument. For multi-dose data, PKNCA selects the intervals
+  from the dosing schedule and the partial AUC is not computed (with a
+  warning); use `groups` to analyze each dosing occasion separately.
 
 - exclude_points:
 
@@ -204,9 +208,13 @@ run_nca(
 
   compute AUCtau whenever relevant? TRUE (default) / FALSE. For
   multi-dose PK data, this will add the parameter `auc_tau` to the NCA
-  output data as the AUC for each interval. In essence, it will just
-  make a copy of the AUClast for the interval. See exact logic in
-  function help page.
+  output data as the AUC for each interval with a finite end. If a
+  concentration was measured exactly at the end of the interval, this is
+  the AUClast for the interval. Otherwise (e.g. when the sample at the
+  end of the interval was drawn late), it is PKNCA's `aucint.last.dose`
+  (`aucint.last` without dose data), which interpolates the
+  concentration to the end of the interval. See the *AUCtau and partial
+  AUC* section for limitations.
 
 - post:
 
@@ -301,6 +309,29 @@ See
 [`PKNCA_impute_method_start_obs_predose_conc0()`](https://insightrx.github.io/PKNCA.extra/reference/nca_impute_methods.md)
 and
 [`PKNCA_impute_method_start_obs_c0_logslope()`](https://insightrx.github.io/PKNCA.extra/reference/nca_impute_methods.md).
+
+## AUCtau and partial AUC
+
+`auclast` only integrates up to the last sample at or before the end of
+an interval, so it is biased low when the sample at the end of the
+interval was drawn late. Partial AUC and AUCtau therefore use PKNCA's
+`aucint.last.dose` when needed (see `partial_auc` and `add_auctau`).
+Known limitations, following PKNCA's behavior:
+
+- When there is no sample to interpolate the end of the interval from
+  (the end is after the last measurable sample, or at the time of a next
+  dose without a sample at that time), PKNCA extrapolates the
+  concentration at the end as zero, so the AUC is still underestimated.
+
+- `aucint.*` does not use the start-of-interval imputation (see
+  *Imputation*), e.g. C0 back-extrapolation for an IV bolus.
+
+- For multi-dose data, PKNCA only selects an interval between two doses
+  when concentrations were measured exactly at both dose times, and the
+  interval after the last dose when a concentration was measured exactly
+  at the last dose time + tau. If no interval can be selected for any
+  subject, `run_nca()` stops with an error. Partial AUC is not computed
+  for multi-dose data.
 
 ## Unit strings and conversions
 

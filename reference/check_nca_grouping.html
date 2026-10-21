@@ -11,7 +11,7 @@ perform NCA and calculate half-life, then the grouping is likely wrong."></head>
 
     <a class="navbar-brand me-2" href="../index.html">PKNCA.extra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9010</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9021</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -71,7 +71,12 @@ indicating PK an dosing data.</p></dd>
 <dt id="arg-dictionary">dictionary<a class="anchor" aria-label="anchor" href="#arg-dictionary"></a></dt>
 <dd><p>abridged data dictionary for the input dataset, specified
 as list object. Requires at least entries for <code>subject_id</code>, <code>time</code>, <code>conc</code>,
-<code>dose</code>. Optional entries are: <code>visit</code>.
+<code>dose</code>. Optional entries are: <code>visit</code>, <code>route</code>, and <code>duration</code>. <code>route</code>
+should be a column in the dose data with the route of administration (e.g.
+"IV", "intravenous", "oral"); intravenous routes are mapped to PKNCA's
+"intravascular", all others to "extravascular". <code>duration</code> should be a
+column with the dose duration (0 for bolus). Doses with an intravascular
+route and zero duration are treated as IV bolus (see <em>Imputation</em> below).
 If required entries are specified only partially, then default values
 (i.e. CDISC) nomenclature will be imputed for missing identifiers.</p></dd>
 
