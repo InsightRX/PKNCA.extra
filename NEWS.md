@@ -33,7 +33,13 @@
 
 ## Other changes
 
-* New internal helper `restore_pknca_options()`.
+* New internal helper `restore_pknca_options()`. It restores the options
+  atomically (reset to defaults, then a single validated set of all changed
+  options), restores options that are `NULL`, and does not replay PKNCA
+  validation warnings for saved values (e.g. `min.span.ratio < 2`), also when
+  `options(warn = 2)` is set.
+* Minimum R version is now 3.6.0, required for reproducible seeding in
+  `parse_data_for_nca()` (`set.seed(sample.kind = )`).
 * Fixed R CMD check NOTEs for undefined global variables in
   `check_nca_grouping()`, `create_nca_table()`, `get_nca_individual_fits()`
   and `run_nca()` (no change in behavior).

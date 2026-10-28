@@ -60,3 +60,13 @@ test_that("parse_data_for_nca validates seed", {
   expect_error(parse_data_for_nca(make_sdtm(), seed = c(1, 2)), "seed")
   expect_error(parse_data_for_nca(make_sdtm(), seed = NA), "seed")
 })
+
+test_that("parse_data_for_nca does not change the random number generator kind", {
+  old_kind <- RNGkind()
+  withr::defer(do.call(RNGkind, as.list(old_kind)))
+  RNGkind("L'Ecuyer-CMRG")
+  res <- parse_data_for_nca(make_sdtm())
+  expect_equal(RNGkind()[1], "L'Ecuyer-CMRG")
+  ## result does not depend on the session's generator kind
+  expect_equal(res$ATSLD, c(0, 1.05, 3.97, 0, 1.04, 3.52))
+})

@@ -33,18 +33,43 @@ apply_pknca_options <- function(
 #' with `PKNCA::PKNCA.options()` and call this function on exit, so that the
 #' options seen by any later code are not affected by the analysis.
 #'
-#' Options are restored one by one with `check = FALSE`, since the saved
-#' values were already validated by PKNCA when they were originally set.
+#' The options are first reset to the PKNCA defaults, after which all options
+#' that differ from the defaults are set in a single call to
+#' `PKNCA::PKNCA.options()`. PKNCA validates all values before storing any of
+#' them, so the restore is atomic: either all options are restored, or (if any
+#' value is rejected) the options are left at the PKNCA defaults. Options
+#' whose saved value is `NULL` are restored through the reset to defaults,
+#' since `PKNCA::PKNCA.options()` cannot set an option to `NULL`.
+#'
+#' PKNCA re-validates the saved values when they are set. Any warnings from
+#' that validation (e.g. `min.span.ratio` below 2) were already shown when the
+#' options were originally set, and are therefore suppressed. A warning is
+#' given if the restored options are not identical to the saved options.
 #'
 #' @param options list of PKNCA options, as returned by
 #' `PKNCA::PKNCA.options()`.
 #'
 #' @returns The restored PKNCA options (invisibly).
 restore_pknca_options <- function(options) {
-  for(key in names(options)) {
-    PKNCA::PKNCA.options(name = key, value = options[[key]], check = FALSE)
+  defaults <- PKNCA::PKNCA.options(default = TRUE)
+  changed <- names(options)[
+    !vapply(
+      names(options),
+      function(key) identical(options[[key]], defaults[[key]]),
+      logical(1)
+    )
+  ]
+  changed <- changed[!vapply(options[changed], is.null, logical(1))]
+  if(length(changed) > 0) {
+    suppressWarnings(
+      do.call(PKNCA::PKNCA.options, options[changed])
+    )
   }
-  invisible(PKNCA::PKNCA.options())
+  restored <- PKNCA::PKNCA.options()
+  if(!identical(restored, options)) {
+    cli::cli_warn("PKNCA options could not be fully restored.")
+  }
+  invisible(restored)
 }
 
 #' Get the PKNCA options from a spec file, and parse into 

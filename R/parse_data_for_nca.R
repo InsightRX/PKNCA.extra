@@ -119,7 +119,7 @@ rnorm_with_seed <- function(n, mean = 0, sd = 1, seed = NULL) {
     old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
   }
   on.exit({
-    RNGkind(old_kind[1], old_kind[2], old_kind[3])
+    do.call(RNGkind, as.list(old_kind))
     if (had_seed) {
       assign(".Random.seed", old_seed, envir = globalenv())
     } else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {

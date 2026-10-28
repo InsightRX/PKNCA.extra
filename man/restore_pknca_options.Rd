@@ -20,6 +20,16 @@ with \code{PKNCA::PKNCA.options()} and call this function on exit, so that the
 options seen by any later code are not affected by the analysis.
 }
 \details{
-Options are restored one by one with \code{check = FALSE}, since the saved
-values were already validated by PKNCA when they were originally set.
+The options are first reset to the PKNCA defaults, after which all options
+that differ from the defaults are set in a single call to
+\code{PKNCA::PKNCA.options()}. PKNCA validates all values before storing any of
+them, so the restore is atomic: either all options are restored, or (if any
+value is rejected) the options are left at the PKNCA defaults. Options
+whose saved value is \code{NULL} are restored through the reset to defaults,
+since \code{PKNCA::PKNCA.options()} cannot set an option to \code{NULL}.
+
+PKNCA re-validates the saved values when they are set. Any warnings from
+that validation (e.g. \code{min.span.ratio} below 2) were already shown when the
+options were originally set, and are therefore suppressed. A warning is
+given if the restored options are not identical to the saved options.
 }
