@@ -2,28 +2,43 @@
 % Please edit documentation in R/run_nca.R
 \name{get_pk_parameters_from_pknca_options}
 \alias{get_pk_parameters_from_pknca_options}
-\title{When PKNCA::PKNCA.options() is invoked without arguments, it will
-return a list of its configuration. Among the options is the data.frame
-\code{single.dose.aucs} which will list the exported PK parameters for both
-the AUC0-24 and AUCinf computations. Wherever the parameters are set to TRUE
-PKNCA will compute those and include in output. So in that case we can use
-those parameters as well and should make them available in the output from
-\code{run_nca()}.}
+\title{Get the PK parameters requested in a PKNCA interval specification}
 \usage{
 get_pk_parameters_from_pknca_options(options = NULL, no_dots = FALSE)
 }
 \arguments{
-\item{options}{parameters for interval specification for NCA}
+\item{options}{data.frame with interval specification for NCA, in the
+format of \code{PKNCA::PKNCA.options()$single.dose.aucs}. If \code{NULL} (default),
+the currently active PKNCA option \code{single.dose.aucs} is used.}
 
-\item{no_dots}{if \code{TRUE} (default) will replace any dots in parameter names
-(e.g. \code{aucinf.obs}) with underscores (\code{aucinf_obs}).}
+\item{no_dots}{if \code{TRUE}, will replace any dots in parameter names (e.g.
+\code{aucinf.obs}) with underscores (\code{aucinf_obs}). Default is \code{FALSE}, i.e.
+PKNCA parameter names are returned unchanged.}
+}
+\value{
+character vector of PK parameter names (possibly of length 0).
 }
 \description{
-When PKNCA::PKNCA.options() is invoked without arguments, it will
-return a list of its configuration. Among the options is the data.frame
-\code{single.dose.aucs} which will list the exported PK parameters for both
-the AUC0-24 and AUCinf computations. Wherever the parameters are set to TRUE
-PKNCA will compute those and include in output. So in that case we can use
-those parameters as well and should make them available in the output from
-\code{run_nca()}.
+The PKNCA option \code{single.dose.aucs} (see \code{PKNCA::PKNCA.options()}) is a
+data.frame with one row per NCA interval (\code{start}, \code{end}) and one logical
+column per PK parameter. Wherever a parameter is set to \code{TRUE}, PKNCA will
+compute it for that interval. This function returns the names of all
+parameters requested for at least one interval, so that they can be made
+available in the output from \code{run_nca()}.
+}
+\details{
+Only logical columns are considered parameter columns. Other columns (e.g.
+\code{start}, \code{end}, \code{impute}) are ignored, regardless of their values. \code{NA}
+values are treated as not requested.
+
+Parameters are returned in order of first appearance, scanning intervals
+(rows) in order and, within each interval, parameter columns from left to
+right. Each parameter is returned only once.
+
+The result depends only on \code{options}. When \code{options} is \code{NULL}, the
+\emph{currently active} PKNCA options are used, i.e.
+\code{PKNCA::PKNCA.options()$single.dose.aucs}, so calling the function with
+\code{NULL} or with that value explicitly gives identical results. Note that
+\code{run_nca()} restores the PKNCA options on exit, so calling \code{run_nca()} does
+not change the result of a later call with \code{options = NULL}.
 }

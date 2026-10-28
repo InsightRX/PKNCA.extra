@@ -48,7 +48,7 @@ create_nca_table <- function(
   if(all(c("name", "value") %in% names(nca_data))) {
     tmp <- attr(nca_data, "PKNCA_object")
     nca_data <- nca_data |>
-      dplyr::select(-unit) |>
+      dplyr::select(-"unit") |>
       tidyr::pivot_wider(names_from = "name", values_from = "value")
     attr(nca_data, "PKNCA_object") <- tmp
   } else {
