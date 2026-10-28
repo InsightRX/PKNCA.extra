@@ -26,6 +26,27 @@ apply_pknca_options <- function(
   return(PKNCA::PKNCA.options())
 }
 
+#' Restore a previously saved set of PKNCA options
+#'
+#' `PKNCA::PKNCA.options()` is global, session-wide state. Functions that
+#' change it temporarily (such as `run_nca()`) should save the options on entry
+#' with `PKNCA::PKNCA.options()` and call this function on exit, so that the
+#' options seen by any later code are not affected by the analysis.
+#'
+#' Options are restored one by one with `check = FALSE`, since the saved
+#' values were already validated by PKNCA when they were originally set.
+#'
+#' @param options list of PKNCA options, as returned by
+#' `PKNCA::PKNCA.options()`.
+#'
+#' @returns The restored PKNCA options (invisibly).
+restore_pknca_options <- function(options) {
+  for(key in names(options)) {
+    PKNCA::PKNCA.options(name = key, value = options[[key]], check = FALSE)
+  }
+  invisible(PKNCA::PKNCA.options())
+}
+
 #' Get the PKNCA options from a spec file, and parse into 
 #' expected format for `PKNCA::PKNCA.options()`
 #' 

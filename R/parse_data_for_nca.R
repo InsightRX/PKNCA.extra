@@ -1,11 +1,25 @@
 #' Parse data into dataset for NCA
 #' 
+#' The actual time since last dose (`ATSLD`) is simulated from the nominal
+#' time (`PCTPTNUM`) by adding log-normally distributed noise (7% CV). To make
+#' the output reproducible, the noise is generated using a fixed random seed
+#' (argument `seed`). The global random number generator state of the session is
+#' not affected.
+#' 
 #' @param data list containing SDTM tables as data.frames
+#' @param seed integer random seed used to simulate `ATSLD`. Default is
+#' `12345`, which makes the output reproducible across calls. If `NULL`, the
+#' current random number generator state of the session is used (and
+#' advanced), so results will differ between calls unless `set.seed()` is
+#' called beforehand.
 #' 
 #' @returns data.frame with data for NCA package
 #' 
 #' @export
-parse_data_for_nca <- function(data) {
+parse_data_for_nca <- function(data, seed = 12345) {
+  if (!is.null(seed) && !(is.numeric(seed) && length(seed) == 1 && !is.na(seed))) {
+    cli::cli_abort("`seed` should be a single number, or `NULL`.")
+  }
   
   ## Define metadata / settings for NCA
   ## These are things that cannot be read easily from EX dataset
@@ -35,7 +49,7 @@ parse_data_for_nca <- function(data) {
     ) %>%
     dplyr::mutate(
       # actual time since last dose:
-      atsld = round(.data$pctptnum * exp(stats::rnorm(dplyr::n(), 0, .07)), 2)
+      atsld = round(.data$pctptnum * exp(rnorm_with_seed(dplyr::n(), 0, .07, seed = seed)), 2)
     ) %>%
     dplyr::rename_with(toupper) %>%
     merge(
@@ -79,4 +93,45 @@ parse_data_for_nca <- function(data) {
     )
 
   nca_data
+}
+
+#' Draw from a normal distribution using a specific seed
+#'
+#' Draws random numbers with `stats::rnorm()` using the given `seed` and R's
+#' default random number generators, and restores the global random number
+#' generator state and kind afterwards, so that the session's random number
+#' stream is not affected.
+#'
+#' @param n number of draws
+#' @param mean mean of the normal distribution
+#' @param sd standard deviation of the normal distribution
+#' @param seed integer random seed. If `NULL`, draws from the current random
+#' number generator state without restoring it.
+#'
+#' @returns numeric vector of length `n`
+rnorm_with_seed <- function(n, mean = 0, sd = 1, seed = NULL) {
+  if (is.null(seed)) {
+    return(stats::rnorm(n, mean, sd))
+  }
+  old_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+  if (had_seed) {
+    old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+  }
+  on.exit({
+    RNGkind(old_kind[1], old_kind[2], old_kind[3])
+    if (had_seed) {
+      assign(".Random.seed", old_seed, envir = globalenv())
+    } else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      rm(".Random.seed", envir = globalenv())
+    }
+  }, add = TRUE)
+  ## Use R's default generators, so results do not depend on session settings
+  set.seed(
+    seed,
+    kind = "Mersenne-Twister",
+    normal.kind = "Inversion",
+    sample.kind = "Rejection"
+  )
+  stats::rnorm(n, mean, sd)
 }

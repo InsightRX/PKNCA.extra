@@ -31,7 +31,7 @@ check_nca_grouping <- function(
   }
   n_unique <- grouped_data |>
     dplyr::summarise(n = dplyr::n()) |>
-    dplyr::pull(n)
+    dplyr::pull("n")
 
   ## Get number of groups where number of samples is lower than the minimum number of samples needed for half-life
   min_points <- settings$minPointsRegression

@@ -356,7 +356,10 @@ run_nca <- function(
     mapping = "pknca"
   )
 
-  ## Apply options
+  ## Apply options. PKNCA options are global state, so restore the user's
+  ## options on exit to ensure run_nca() has no side effects on the session.
+  pknca_options_on_entry <- PKNCA::PKNCA.options()
+  on.exit(restore_pknca_options(pknca_options_on_entry), add = TRUE)
   pknca_options <- apply_pknca_options(
     pknca_options,
     nca_parameters = spec$nca$pknca.parameters,
@@ -731,7 +734,7 @@ run_nca <- function(
     dplyr::select(-"exclude") %>%
     tidyr::pivot_wider(
       names_from = "PPTESTCD", 
-      values_from = value
+      values_from = "value"
     ) %>%
     dplyr::mutate(
       # all columns with start/end matching partial_auc, and where other NCA params are NA
@@ -867,10 +870,10 @@ run_nca <- function(
       cli::cli_alert_info("Adding columns for treatment sequence")
     }
     seq_dat <- get_treatment_sequence(
-      dat = data,
+      data = data,
       dictionary = dictionary,
       variable = sequence_from,
-      group = cols_groups
+      groups = cols_groups
     )
     nca_output <- nca_output |>
       dplyr::left_join(seq_dat, by = dictionary$subject_id)
@@ -978,47 +981,78 @@ run_nca <- function(
   nca_output
 }
 
-#' When PKNCA::PKNCA.options() is invoked without arguments, it will
-#' return a list of its configuration. Among the options is the data.frame
-#' `single.dose.aucs` which will list the exported PK parameters for both 
-#' the AUC0-24 and AUCinf computations. Wherever the parameters are set to TRUE
-#' PKNCA will compute those and include in output. So in that case we can use 
-#' those parameters as well and should make them available in the output from 
-#' `run_nca()`.
-#' 
-#' @param options parameters for interval specification for NCA
-#' @param no_dots if `TRUE` (default) will replace any dots in parameter names
-#' (e.g. `aucinf.obs`) with underscores (`aucinf_obs`).
-#' 
-get_pk_parameters_from_pknca_options <- function(options = NULL, 
+#' Get the PK parameters requested in a PKNCA interval specification
+#'
+#' The PKNCA option `single.dose.aucs` (see `PKNCA::PKNCA.options()`) is a
+#' data.frame with one row per NCA interval (`start`, `end`) and one logical
+#' column per PK parameter. Wherever a parameter is set to `TRUE`, PKNCA will
+#' compute it for that interval. This function returns the names of all
+#' parameters requested for at least one interval, so that they can be made
+#' available in the output from `run_nca()`.
+#'
+#' Only logical columns are considered parameter columns. Other columns (e.g.
+#' `start`, `end`, `impute`) are ignored, regardless of their values. `NA`
+#' values are treated as not requested.
+#'
+#' Parameters are returned in order of first appearance, scanning intervals
+#' (rows) in order and, within each interval, parameter columns from left to
+#' right. Each parameter is returned only once.
+#'
+#' The result depends only on `options`. When `options` is `NULL`, the
+#' *currently active* PKNCA options are used, i.e.
+#' `PKNCA::PKNCA.options()$single.dose.aucs`, so calling the function with
+#' `NULL` or with that value explicitly gives identical results. Note that
+#' `run_nca()` restores the PKNCA options on exit, so calling `run_nca()` does
+#' not change the result of a later call with `options = NULL`.
+#'
+#' @param options data.frame with interval specification for NCA, in the
+#' format of `PKNCA::PKNCA.options()$single.dose.aucs`. If `NULL` (default),
+#' the currently active PKNCA option `single.dose.aucs` is used.
+#' @param no_dots if `TRUE`, will replace any dots in parameter names (e.g.
+#' `aucinf.obs`) with underscores (`aucinf_obs`). Default is `FALSE`, i.e.
+#' PKNCA parameter names are returned unchanged.
+#'
+#' @returns character vector of PK parameter names (possibly of length 0).
+get_pk_parameters_from_pknca_options <- function(options = NULL,
                                                  no_dots = FALSE) {
   if(is.null(options)) {
     options <- PKNCA::PKNCA.options()$single.dose.aucs
   }
-  pk_par_names <- names(options)
-  cols <- c()
-  for(i in 1:length(options$start)) {
-    suppressWarnings( # some may not be T/F type parameters, we don't need warning 
-      tmp <- pk_par_names[
-        as.numeric(options[i, ]) == 1
-      ]
-    )
-    tmp <- tmp[!is.na(tmp)]
-    cols <- c(cols, tmp)
+  if(!inherits(options, "data.frame")) {
+    cli::cli_abort("`options` should be a data.frame with NCA interval specifications, or `NULL`.")
   }
+  if(!(isTRUE(no_dots) || isFALSE(no_dots))) {
+    cli::cli_abort("`no_dots` should be either `TRUE` or `FALSE`.")
+  }
+  is_par_col <- vapply(options, is.logical, logical(1))
+  par_options <- options[, is_par_col, drop = FALSE]
+  cols <- character(0)
+  for(i in seq_len(nrow(par_options))) {
+    requested <- vapply(par_options[i, , drop = FALSE], isTRUE, logical(1))
+    cols <- c(cols, names(par_options)[requested])
+  }
+  cols <- unique(cols)
   if(no_dots) {
-    cols <- gsub("\\.", "_", cols)
+    cols <- gsub(".", "_", cols, fixed = TRUE)
   }
   cols
 }
 
 #' Creates a data.frame specifying start and end time, and stores it as option
-#' `single.dose.auc` in PKNCA.options()
-#' 
-#' @param time description...
-#' @param parameters list of parameters to calculate, indicated by TRUE and 
+#' `single.dose.aucs` in PKNCA.options()
+#'
+#' Note: this modifies the global PKNCA options for the current session. Save
+#' the options beforehand with `PKNCA::PKNCA.options()` and restore them with
+#' `restore_pknca_options()` if this side effect is not desired.
+#'
+#' @param time numeric vector of length 2, with the start and end time of the
+#' NCA interval.
+#' @param parameters list of parameters to calculate, indicated by TRUE and
 #' FALSE, e.g. `list(auc.inf.pred=TRUE, cmax.pred=FALSE, ...)`
-#' 
+#'
+#' @returns The updated PKNCA options (invisibly), as returned by
+#' `PKNCA::PKNCA.options()`.
+#'
 set_pknca_interval_parameters <- function(time, parameters) {
   if (!isTRUE(length(time) == 2)) {
     stop("`time` argument can only be of length 2 (start and end of NCA).")
