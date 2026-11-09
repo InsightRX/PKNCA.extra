@@ -26,6 +26,52 @@ apply_pknca_options <- function(
   return(PKNCA::PKNCA.options())
 }
 
+#' Restore a previously saved set of PKNCA options
+#'
+#' `PKNCA::PKNCA.options()` is global, session-wide state. Functions that
+#' change it temporarily (such as `run_nca()`) should save the options on entry
+#' with `PKNCA::PKNCA.options()` and call this function on exit, so that the
+#' options seen by any later code are not affected by the analysis.
+#'
+#' The options are first reset to the PKNCA defaults, after which all options
+#' that differ from the defaults are set in a single call to
+#' `PKNCA::PKNCA.options()`. PKNCA validates all values before storing any of
+#' them, so the restore is atomic: either all options are restored, or (if any
+#' value is rejected) the options are left at the PKNCA defaults. Options
+#' whose saved value is `NULL` are restored through the reset to defaults,
+#' since `PKNCA::PKNCA.options()` cannot set an option to `NULL`.
+#'
+#' PKNCA re-validates the saved values when they are set. Any warnings from
+#' that validation (e.g. `min.span.ratio` below 2) were already shown when the
+#' options were originally set, and are therefore suppressed. A warning is
+#' given if the restored options are not identical to the saved options.
+#'
+#' @param options list of PKNCA options, as returned by
+#' `PKNCA::PKNCA.options()`.
+#'
+#' @returns The restored PKNCA options (invisibly).
+restore_pknca_options <- function(options) {
+  defaults <- PKNCA::PKNCA.options(default = TRUE)
+  changed <- names(options)[
+    !vapply(
+      names(options),
+      function(key) identical(options[[key]], defaults[[key]]),
+      logical(1)
+    )
+  ]
+  changed <- changed[!vapply(options[changed], is.null, logical(1))]
+  if(length(changed) > 0) {
+    suppressWarnings(
+      do.call(PKNCA::PKNCA.options, options[changed])
+    )
+  }
+  restored <- PKNCA::PKNCA.options()
+  if(!identical(restored, options)) {
+    cli::cli_warn("PKNCA options could not be fully restored.")
+  }
+  invisible(restored)
+}
+
 #' Get the PKNCA options from a spec file, and parse into 
 #' expected format for `PKNCA::PKNCA.options()`
 #' 

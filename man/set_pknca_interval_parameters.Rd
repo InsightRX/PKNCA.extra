@@ -3,17 +3,23 @@
 \name{set_pknca_interval_parameters}
 \alias{set_pknca_interval_parameters}
 \title{Creates a data.frame specifying start and end time, and stores it as option
-\code{single.dose.auc} in PKNCA.options()}
+\code{single.dose.aucs} in PKNCA.options()}
 \usage{
 set_pknca_interval_parameters(time, parameters)
 }
 \arguments{
-\item{time}{description...}
+\item{time}{numeric vector of length 2, with the start and end time of the
+NCA interval.}
 
 \item{parameters}{list of parameters to calculate, indicated by TRUE and
 FALSE, e.g. \code{list(auc.inf.pred=TRUE, cmax.pred=FALSE, ...)}}
 }
+\value{
+The updated PKNCA options (invisibly), as returned by
+\code{PKNCA::PKNCA.options()}.
+}
 \description{
-Creates a data.frame specifying start and end time, and stores it as option
-\code{single.dose.auc} in PKNCA.options()
+Note: this modifies the global PKNCA options for the current session. Save
+the options beforehand with \code{PKNCA::PKNCA.options()} and restore them with
+\code{restore_pknca_options()} if this side effect is not desired.
 }

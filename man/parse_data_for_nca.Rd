@@ -4,14 +4,24 @@
 \alias{parse_data_for_nca}
 \title{Parse data into dataset for NCA}
 \usage{
-parse_data_for_nca(data)
+parse_data_for_nca(data, seed = 12345)
 }
 \arguments{
 \item{data}{list containing SDTM tables as data.frames}
+
+\item{seed}{integer random seed used to simulate \code{ATSLD}. Default is
+\code{12345}, which makes the output reproducible across calls. If \code{NULL}, the
+current random number generator state of the session is used (and
+advanced), so results will differ between calls unless \code{set.seed()} is
+called beforehand.}
 }
 \value{
 data.frame with data for NCA package
 }
 \description{
-Parse data into dataset for NCA
+The actual time since last dose (\code{ATSLD}) is simulated from the nominal
+time (\code{PCTPTNUM}) by adding log-normally distributed noise (7\% CV). To make
+the output reproducible, the noise is generated using a fixed random seed
+(argument \code{seed}). The global random number generator state of the session is
+not affected.
 }

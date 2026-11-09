@@ -103,10 +103,10 @@ get_nca_individual_fits <- function(
     dplyr::mutate(
       blq = dplyr::if_else(.data[[vars$concentration]] == 0, 1, 0),
       ## Candidate: non-missing, non-BLQ, not excluded from NCA, not excluded from lambda-z only
-      candidate = !is.na(.data[[vars$concentration]]) & blq == 0 & is.na(exclude),
-      candidate = if (!is.null(excl_hl_col)) candidate & !.data[[excl_hl_col]] else candidate,
-      candidate = dplyr::if_else(is.na(candidate), FALSE, candidate),
-      candidate_nr = sum(candidate) - cumsum(candidate),
+      candidate = !is.na(.data[[vars$concentration]]) & .data$blq == 0 & is.na(.data$exclude),
+      candidate = if (!is.null(excl_hl_col)) .data$candidate & !.data[[excl_hl_col]] else .data$candidate,
+      candidate = dplyr::if_else(is.na(.data$candidate), FALSE, .data$candidate),
+      candidate_nr = sum(.data$candidate) - cumsum(.data$candidate),
       ## group_has_include: scalar per group (TRUE when include_lambda_z was
       ## specified for any point in this group). Recycled to all rows in group.
       group_has_include = if (!is.null(incl_hl_col)) {
@@ -117,19 +117,19 @@ get_nca_individual_fits <- function(
       ## Base used_in_fit: count the last n_points candidate points from the
       ## tail (exclude_lambda_z points are excluded via candidate = FALSE above).
       used_in_fit = as.integer(
-        candidate & candidate_nr < lambda.z.n.points & candidate_nr >= 0
+        .data$candidate & .data$candidate_nr < .data$lambda.z.n.points & .data$candidate_nr >= 0
       ),
       ## Override: if include_lambda_z was used for this group, use include_hl
       ## directly instead of the counting logic.
       used_in_fit = if (!is.null(incl_hl_col)) {
-        dplyr::if_else(group_has_include, as.integer(.data[[incl_hl_col]]), used_in_fit)
+        dplyr::if_else(.data$group_has_include, as.integer(.data[[incl_hl_col]]), .data$used_in_fit)
       } else {
-        used_in_fit
+        .data$used_in_fit
       },
       ## user_included: TRUE if this point was explicitly specified via include_lambda_z
       user_included = if (!is.null(incl_hl_col)) .data[[incl_hl_col]] else FALSE
     ) %>%
-    dplyr::select(-candidate, -candidate_nr, -group_has_include,
+    dplyr::select(-"candidate", -"candidate_nr", -"group_has_include",
                   -dplyr::any_of(c(incl_hl_col, excl_hl_col))) %>%
     dplyr::arrange_at(c(group_names, vars$time)) %>%
     dplyr::rename(

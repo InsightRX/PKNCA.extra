@@ -1,7 +1,6 @@
-dat <- nca_admiral
-ids <- unique(dat$USUBJID)
-
 test_that("NCA works properly and returns expected results for default config and saves to file", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   # set up a temporary directory so we can check the file saves as expected
   tdir <- tempdir()
   on.exit(file.remove(file.path(tdir, "nca.rds")))
@@ -31,6 +30,8 @@ test_that("NCA works properly and returns expected results for default config an
 })
 
 test_that("NCA returns expected results for a non-default config", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   nca_data <- run_nca(
     dat[dat$USUBJID %in% ids[1:2],], 
     specification = "default2",
@@ -47,12 +48,42 @@ test_that("NCA returns expected results for a non-default config", {
   expect_equal(round(sum(nca_data$THALF), 1), 25.8)
   expect_equal(round(sum(nca_data$AUCINF), 1), 116.6)
   
-  ## Check that PKNCA.options() get set appropriately
-  tmp <- PKNCA::PKNCA.options()
-  expect_equal(tmp$conc.blq$middle, "keep") # this settings different from default 
+})
+
+test_that("PKNCA options are applied during the NCA and restored afterwards", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
+  old <- PKNCA::PKNCA.options()
+  withr::defer(restore_pknca_options(old))
+  PKNCA::PKNCA.options(default = TRUE)
+  options_before <- PKNCA::PKNCA.options()
+  expect_equal(options_before$conc.blq$middle, "drop") # PKNCA default
+
+  ## Capture the PKNCA options in effect when PKNCA::pk.nca() is called
+  captured <- new.env()
+  trace(
+    "pk.nca",
+    where = asNamespace("PKNCA"),
+    tracer = bquote(assign("options", PKNCA::PKNCA.options(), envir = .(captured))),
+    print = FALSE
+  )
+  withr::defer(untrace("pk.nca", where = asNamespace("PKNCA")))
+  run_nca(
+    dat[dat$USUBJID %in% ids[1:2],],
+    specification = "default2",
+    no_dots = FALSE,
+    verbose = FALSE
+  )
+
+  ## Settings from the specification were in effect during the NCA
+  expect_equal(captured$options$conc.blq$middle, "keep") # this settings different from default
+  ## ... and the global options were restored afterwards
+  expect_identical(PKNCA::PKNCA.options(), options_before)
 })
 
 test_that("NCA returns expected results when settings are passed", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   settings <- list(
     "administrationType" = "IV",
     "integralMethod" = "linearUpLogDown",
@@ -81,6 +112,8 @@ test_that("NCA returns expected results when settings are passed", {
 })
 
 test_that("NCA works properly and returns expected results when requesting partial AUC", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   nca_data <- run_nca(
     dat[dat$USUBJID %in% ids[1:2],], 
     partial_auc = data.frame(start = 0, end = 4),
@@ -104,6 +137,8 @@ test_that("NCA works properly and returns expected results when requesting parti
 })
 
 test_that("NCA works properly and returns expected results when requesting one specific intervals", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   nca_data <- run_nca(
     dat[dat$USUBJID %in% ids[1:2],],
     intervals = data.frame(
@@ -127,6 +162,8 @@ test_that("NCA works properly and returns expected results when requesting one s
 })
 
 test_that("NCA works properly and returns expected results when requesting two intervals", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   suppressWarnings(
     nca_data <- run_nca(
       dat[dat$USUBJID %in% ids[1:4],], 
@@ -150,6 +187,8 @@ test_that("NCA works properly and returns expected results when requesting two i
 })
 
 test_that("NCA works properly and returns expected results when requesting two intervals and partial auc", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   nca_data <- run_nca(
     dat[dat$USUBJID %in% ids[1:4],], 
     no_dots = FALSE,
@@ -176,6 +215,8 @@ test_that("NCA works properly and returns expected results when requesting two i
 })
 
 test_that("NCA works without dose info", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   suppressWarnings(
     nca_data <- run_nca(
       data = dat[dat$USUBJID %in% ids[1:2],] |>
@@ -199,6 +240,8 @@ test_that("NCA works without dose info", {
 })
 
 test_that("NCA gives warning when partial AUC specifies duplicate interva but doesn't error", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   expect_message(
     nca_data <- run_nca(
       dat[dat$USUBJID %in% ids[1:4],],
@@ -228,6 +271,8 @@ test_that("NCA gives warning when partial AUC specifies duplicate interva but do
 })
 
 describe("Test `check_grouping` argument", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
   
   test_that("run_nca with check_grouping=TRUE passes when groups have sufficient data", {
     # Create data with sufficient points per group
@@ -279,6 +324,8 @@ describe("Test `check_grouping` argument", {
 })
 
 describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
 
   test_that("exclude_lambda_z excludes specific points from lambda-z fit only", {
     nca_base <- run_nca(
@@ -559,6 +606,8 @@ describe("Test `exclude_lambda_z` and `include_lambda_z` arguments", {
 })
 
 describe("lambdaz_fail column", {
+  dat <- nca_admiral
+  ids <- unique(dat$USUBJID)
 
   test_that("lambdaz_fail column is present in wide output", {
     dat <- nca_admiral; ids <- unique(dat$USUBJID)
@@ -661,24 +710,6 @@ test_that("PKNCAconc errors other than non-unique times surface the PKNCA messag
 
 ## 1-cmt IV bolus data with closed-form AUC, where the sample at the end of the
 ## interval (nominal 12 h) is drawn late.
-make_late_boundary_data <- function(dose_times = 0) {
-  subj <- data.frame(ID = 1:5, CL = c(4, 5, 6, 4.5, 5.5), V = c(18, 20, 22, 19, 21))
-  late <- c(0.25, 0.40, 0.15, 0.55, 0.30)
-  nom  <- c(0, 0.5, 1, 2, 4, 6, 8, 10, 12, 16, 24)
-  conc <- do.call(rbind, lapply(1:5, function(i) {
-    t <- nom
-    t[nom == 12] <- 12 + late[i]
-    k <- subj$CL[i] / subj$V[i]
-    dv <- sapply(t, function(tt) sum(100 / subj$V[i] * exp(-k * (tt - dose_times[dose_times <= tt]))))
-    data.frame(ID = i, TIME = t, DV = dv, AMT = 0, EVID = 0)
-  }))
-  dose <- expand.grid(ID = 1:5, TIME = dose_times)
-  dose <- data.frame(ID = dose$ID, TIME = dose$TIME, DV = 0, AMT = 100, EVID = 1)
-  d <- rbind(dose, conc)
-  d <- d[order(d$ID, d$TIME, -d$EVID), ]
-  list(data = d, subj = subj)
-}
-dict_late_boundary <- list(subject_id = "ID", time = "TIME", conc = "DV", dose = "AMT", evid = "EVID")
 
 test_that("partial AUC interpolates to end of interval when boundary sample is late", {
   tmp <- make_late_boundary_data()
