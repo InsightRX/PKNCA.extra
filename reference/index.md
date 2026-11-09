@@ -27,16 +27,7 @@
   : Get parameter names from a run_nca() output object
 
 - [`get_pk_parameters_from_pknca_options()`](https://insightrx.github.io/PKNCA.extra/reference/get_pk_parameters_from_pknca_options.md)
-  :
-
-  When PKNCA::PKNCA.options() is invoked without arguments, it will
-  return a list of its configuration. Among the options is the
-  data.frame `single.dose.aucs` which will list the exported PK
-  parameters for both the AUC0-24 and AUCinf computations. Wherever the
-  parameters are set to TRUE PKNCA will compute those and include in
-  output. So in that case we can use those parameters as well and should
-  make them available in the output from
-  [`run_nca()`](https://insightrx.github.io/PKNCA.extra/reference/run_nca.md).
+  : Get the PK parameters requested in a PKNCA interval specification
 
 - [`get_treatment_sequence()`](https://insightrx.github.io/PKNCA.extra/reference/get_treatment_sequence.md)
   : Function to generate a sequence variable for e.g. a crossover trial
@@ -99,6 +90,12 @@
 - [`remap_nca_output()`](https://insightrx.github.io/PKNCA.extra/reference/remap_nca_output.md)
   : Function to export output from PKNCA to CDISC- or other mappings
 
+- [`restore_pknca_options()`](https://insightrx.github.io/PKNCA.extra/reference/restore_pknca_options.md)
+  : Restore a previously saved set of PKNCA options
+
+- [`rnorm_with_seed()`](https://insightrx.github.io/PKNCA.extra/reference/rnorm_with_seed.md)
+  : Draw from a normal distribution using a specific seed
+
 - [`run_nca()`](https://insightrx.github.io/PKNCA.extra/reference/run_nca.md)
   : Run a non-compartmental analysis
 
@@ -111,4 +108,4 @@
   :
 
   Creates a data.frame specifying start and end time, and stores it as
-  option `single.dose.auc` in PKNCA.options()
+  option `single.dose.aucs` in PKNCA.options()
